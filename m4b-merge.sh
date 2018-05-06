@@ -10,13 +10,14 @@ M4BPATH="/home/$USER/m4b-tool/m4b-tool.phar"
 for dir in $INPUT/*
 do
 	if [[ $(find "$dir"/* -type f -regex ".*\.\(mp3\|m4b\)" | wc -l) -gt 1 ]]; then
-		echo "Found dir with more than one audiobook file: "$(basename "$dir")""
+		#echo "Found dir with more than one audiobook file: "$(basename "$dir")""
 		echo "$(basename "$dir")" >> "$INPUT"/abook
+		#echo -e ' \n ' >> "$INPUT"/abook
 	fi
 done
 
-IFS=''
-select adbook in $(cat "$INPUT"/abook) exit; do
+IFS=$'\n'
+select adbook in $(cat $INPUT/abook) exit; do
   case "$adbook" in
       exit) echo "exiting"
             break ;;
@@ -26,8 +27,8 @@ select adbook in $(cat "$INPUT"/abook) exit; do
 		 	read -e -p 'Enter albumartist (Author): ' albumartistvar
 			read -e -p 'Enter bitrate, if any: ' brvar
 		 	echo "Starting conversion of $adbook..."
-		 	mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
-			php "$M4BPATH" merge "$INPUT"/"$adbook" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b --name=$namevar --album=$albumvar --artist=$artistvar --albumartist=$albumartistvar --audio-bitrate=$brvar $DFLTSET
+		 	mkdir -p "$TOMOVE"/"$artistvar"/"$albumvar"
+			php "$M4BPATH" merge "$INPUT"/"$adbook" --output-file="$TOMOVE"/"$artistvar"/"$albumvar"/"$namevar".m4b --name=$namevar --album=$albumvar --artist=$artistvar --albumartist=$albumartistvar --audio-bitrate=$brvar $DFLTSET
 			echo "Done."
 			;;
   esac
