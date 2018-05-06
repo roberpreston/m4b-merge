@@ -9,12 +9,16 @@ M4BPATH="/home/$USER/m4b-tool/m4b-tool.phar"
 
 echo "Getting folder/files to use..."
 
-for dir in $INPUT/*
-do
-	if [[ $(find "$dir"/* -type f -regex ".*\.\(mp3\|m4b\)" | wc -l) -gt 1 ]]; then
-		echo "$(basename "$dir")" >> "$INPUT"/.abook
-	fi
-done
+if [ -s "$INPUT"/.abook ]; then
+	echo "File was not cleaned properly"
+else
+	for dir in $INPUT/*
+	do
+		if [[ $(find "$dir"/* -type f -regex ".*\.\(mp3\|m4b\)" | wc -l) -gt 1 ]]; then 
+			echo "$(basename "$dir")" >> "$INPUT"/.abook
+		fi
+	done
+fi
 
 IFS=$'\n'
 select adbook in $(cat $INPUT/.abook) exit; do
