@@ -1,13 +1,41 @@
 #!/bin/bash
 # Script to use m4b-tool to merge audiobooks, easily.
 
-INPUT="/home/$USER/Downloads/audiobooks"
+#LOCAL FOLDERS
+INPUT="/mnt/disk1/audiobooks/incoming"
 TOMOVE="/home/$USER/Downloads/audiobooks/SORTING"
 OUTPUT="/mnt/disk1/audiobooks"
+
 M4BPATH="/home/$USER/m4b-tool/m4b-tool.phar"
 METADATA="/mnt/user/Music/ToSort/.metadata.txt"
 DELTRUE="/mnt/user/Music/ToSort/.del.txt"
 
+# -h help text to print
+usage="	$(basename "$0") $VER [-b] [-h] [-n]
+
+	'-b' Batch mode.
+	'-h' This help text.
+	'-n' Enable Pushover notifications.
+	"
+
+# Flags for this script
+	while getopts ":bhn" option; do
+ case "${option}" in
+	b) BATCHMODE=true
+		;;
+	h) echo "$usage"
+ 		exit
+		;;
+	n) PUSHOVER=true
+		;;
+ \?) echo -e "\e[91mInvalid flag: -"$OPTARG". Use '-h' for help.\e[0m" >&2
+ 	;;
+ :) echo -e "\e[91mOption -$OPTARG requires a value.\e[0m" >&2
+      exit 1
+	;;
+
+ esac
+done
 
 ### Functions ###
 
@@ -71,6 +99,7 @@ function collectmeta() {
 }
 
 function batchprocess() {
+if [[ $BATCHMODE == "true" ]]; then
 	echo "Let's go over the folders that have been processed:"
 
 	for dir in "$INPUT"/*
@@ -110,6 +139,24 @@ function batchprocess() {
 	echo "Ok, now deleting folders you confirmed..."
 
 	bash "$DELTRUE"
+fi
+}
+
+function pushovr() {
+	# Check if user wanted notifications
+	if [ "$PUSHOVER" = "true" ]; then
+		echo "Sending Pushover notification..."
+		MESSAGE="m4b-merge script has finished."
+		TITLE="m4b-merge finished"
+		source "$COMMONCONF"
+		curl -s \
+	    -F "token=$APP_TOKEN" \
+	    -F "user=$USER_TOKEN" \
+	    -F "title=$TITLE" \
+	    -F "message=$MESSAGE" \
+	    https://api.pushover.net/1/messages.json
+		echo "Script finished."
+	fi
 }
 
 ### End functions ###
@@ -129,14 +176,10 @@ fi
 
 # Gather metadata from user
 collectmeta
-
 # Process metadata batch
-if [[ batchmode == "true" ]]; then
-	batchprocess
-fi
+batchprocess
 
 rm "$INPUT"/.abook
 
-echo "Starting rclone background move"
-exec screen -dmS rclonesorted rclone move "$TOMOVE" "$OUTPUT" --transfers=1 --verbose --stats 20s
-echo "Script complete."
+# Send notification
+pushovr
