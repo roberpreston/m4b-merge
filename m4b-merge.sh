@@ -67,7 +67,7 @@ function collectmeta() {
 					fi
 			 		echo "Starting conversion of $adbook"
 			 		mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
-					php "$M4BPATH" merge "$INPUT"/"$adbook" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b --name=$namevar --album=$albumvar --artist=$artistvar --albumartist=$albumartistvar "$brvar" "$mbrainid" --ffmpeg-threads=2 | pv -p -t -l -N "Merging $namevar" > /dev/null
+					php "$M4BPATH" merge "$INPUT"/"$adbook" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b --name="$namevar" --album="$albumvar" --artist="$artistvar" --albumartist="$albumartistvar" "$brvar" "$mbrainid" --ffmpeg-threads=2 | pv -p -t -l -N "Merging $namevar" > /dev/null
 					rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
 					echo "Merge has finished."
 					echo "Previous folder size: $(du -hcs "$INPUT"/"$adbook" | cut -f 1 | tail -n1)"
@@ -104,21 +104,21 @@ function collectmeta() {
 
 function batchprocess() {
 if [[ $BATCHMODE == "true" ]]; then
-	touch "$METADATA"
 	for dir in "$INPUT"/*
 	do
 		dirx="$(basename "$dir")"
 		dir2="${dirx//[^[:alnum:]]/}"
 		if [[ -f $METADATA/.$dir2.txt ]]; then
 			source $METADATA/.$dir2.txt
-			echo "Starting conversion of $dir"
+			echo "Starting conversion of $(basename "$dir")"
 			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
-			php "$M4BPATH" merge "$dir" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b --name=$namevar --album=$albumvar --artist=$artistvar --albumartist=$albumartistvar "$brvar" "$mbrainid" --ffmpeg-threads=2 | pv -p -t -l -N "Merging $namevar" > /dev/null
+			php "$M4BPATH" merge "$dir" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b --name="$namevar" --album="$albumvar" --artist="$artistvar" --albumartist="$albumartistvar" "$brvar" "$mbrainid" --ffmpeg-threads=2 | pv -p -t -l -N "Merging "$namevar"" > /dev/null
 			rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
 			echo "Merge has finished."
 			echo "old='Previous folder size: $(du -hcs "$dir" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
 			echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
 			echo "del='ready'" >> "$METADATA"/."$dir2".txt
+			unset namevar albumvar artistvar albumartistvar old new del
 		fi
 	done
 fi
@@ -140,25 +140,8 @@ if [[ $BATCHMODE == "true" ]]; then
 					echo "New folder size: $new"
 					read -e -p 'So should this source be deleted? y/n: ' delvar
 					if [[ $delvar = "y" ]]; then
-						echo "rm -rf '$dir'" >> "$DELTRUE"
-						sed -i '/exists/d' "$METADATA"/."$dir2".txt
-						sed -i '/name/d' "$METADATA"/."$dir2".txt
-						sed -i '/album/d' "$METADATA"/."$dir2".txt
-						sed -i '/artist/d' "$METADATA"/."$dir2".txt
-						sed -i '/albumartist/d' "$METADATA"/."$dir2".txt
-						sed -i '/br/d' "$METADATA"/."$dir2".txt
-						sed -i '/mbrainid/d' "$METADATA"/."$dir2".txt
-						sed -i '/del/d' "$METADATA"/."$dir2".txt
-						sed -i '/new/d' "$METADATA"/."$dir2".txt
-						sed -i '/old/d' "$METADATA"/."$dir2".txt
-					else
-						sed -i '/exists/d' "$METADATA"/."$dir2".txt
-						sed -i '/name/d' "$METADATA"/."$dir2".txt
-						sed -i '/album/d' "$METADATA"/."$dir2".txt
-						sed -i '/artist/d' "$METADATA"/."$dir2".txt
-						sed -i '/albumartist/d' "$METADATA"/."$dir2".txt
-						sed -i '/br/d' "$METADATA"/."$dir2".txt
-						sed -i '/mbrainid/d' "$METADATA"/."$dir2".txt
+						echo "rm -rf "$dir"" >> "$DELTRUE"
+						rm "$METADATA"/."$dir2".txt
 					fi
 				fi
 			fi
