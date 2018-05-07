@@ -2,13 +2,16 @@
 # Script to use m4b-tool to merge audiobooks, easily.
 
 #LOCAL FOLDERS
-INPUT="/mnt/disk1/audiobooks/incoming"
+INPUT="/home/$USER/incoming/audiobooks"
 TOMOVE="/home/$USER/Downloads/audiobooks/SORTING"
 OUTPUT="/mnt/disk1/audiobooks"
 
 M4BPATH="/home/$USER/m4b-tool/m4b-tool.phar"
-METADATA="/mnt/user/Music/ToSort/.metadata.txt"
-DELTRUE="/mnt/user/Music/ToSort/.del.txt"
+METADATA="/home/$USER/m4b-tool"
+
+# Common config, shared between multiple scripts
+COMMONCONF="/home/$USER/.config/scripts/common.cfg"
+
 
 # -h help text to print
 usage="	$(basename "$0") $VER [-b] [-h] [-n]
@@ -51,7 +54,6 @@ function collectmeta() {
 			 	read -e -p 'Enter albumartist (Author): ' albumartistvar
 				read -e -p 'Enter bitrate, if any: ' brvar
 				read -e -p 'Enter Musicbrainz ID, if any: ' mbrainid
-
 				if [[ singleuse == "true" ]]; then
 					if [[ -z $brvar ]]; then
 						brvar=""
@@ -75,22 +77,24 @@ function collectmeta() {
 						rm -rf "$INPUT"/"$adbook"
 					fi
 				else
-					echo "'$adbook'exists=true" >> "$METADATA"
-					echo "'$adbook'name=$namevar" >> "$METADATA"
-					echo "'$adbook'album=$albumvar" >> "$METADATA"
-					echo "'$adbook'artist=$artistvar" >> "$METADATA"
-					echo "'$adbook'albumartist=$albumartistvar" >> "$METADATA"
+					adbookx="$(basename "$adbook")"
+					adbook2="${adbookx//[^[:alnum:]]/}"
+					echo "exists=true" > "$METADATA"/."$adbook2".txt
+					echo "namevar='$namevar'" >> "$METADATA"/."$adbook2".txt
+					echo "albumvar='$albumvar'" >> "$METADATA"/."$adbook2".txt
+					echo "artistvar='$artistvar'" >> "$METADATA"/."$adbook2".txt
+					echo "albumartistvar='$albumartistvar'" >> "$METADATA"/."$adbook2".txt
 					if [[ -z $brvar ]]; then
 						brvar=""
 					else
-						brvar="--audio-bitrate=$brvar"
-						echo "'$adbook'br=$brvar" >> "$METADATA"
+						brvar="--audio-bitrate='$brvar'"
+						echo "brvar='$brvar'" >> "$METADATA"/."$adbook2".txt
 					fi
 					if [[ -z $mbrainid ]]; then
 						mbrainid=""
 					else
 						mbrainid="--musicbrainz-id=$mbrainid"
-						echo "'$adbook'mbrainid=$mbrainid" >> "$METADATA"
+						echo "mbrainid='$mbrainid'" >> "$METADATA"/."$adbook2".txt
 					fi
 				fi
 				;;
@@ -100,37 +104,62 @@ function collectmeta() {
 
 function batchprocess() {
 if [[ $BATCHMODE == "true" ]]; then
-	echo "Let's go over the folders that have been processed:"
-
+	touch "$METADATA"
 	for dir in "$INPUT"/*
 	do
-		if [[ $dir != "SORTING" ]]; then
-			source "$METADATA"
-			if [[ "$dir"del = ready ]]; then
-				echo "Checking $dir ..."
-				echo "Previous folder size: '$dir'old"
-				echo "New folder size: '$dir'new"
-				read -e -p 'So should this source be deleted? y/n: ' delvar
-				if [[ $delvar = "y" ]]; then
-					echo "rm -rf '$dir'" >> "$DELTRUE"
-					sed -i '/'$dir'exists/d' "$METADATA"
-					sed -i '/'$dir'name/d' "$METADATA"
-					sed -i '/'$dir'album/d' "$METADATA"
-					sed -i '/'$dir'artist/d' "$METADATA"
-					sed -i '/'$dir'albumartist/d' "$METADATA"
-					sed -i '/'$dir'br/d' "$METADATA"
-					sed -i '/'$dir'mbrainid/d' "$METADATA"
-					sed -i '/'$dir'del/d' "$METADATA"
-					sed -i '/'$dir'new/d' "$METADATA"
-					sed -i '/'$dir'old/d' "$METADATA"
-				else
-					sed -i '/'$dir'exists/d' "$METADATA"
-					sed -i '/'$dir'name/d' "$METADATA"
-					sed -i '/'$dir'album/d' "$METADATA"
-					sed -i '/'$dir'artist/d' "$METADATA"
-					sed -i '/'$dir'albumartist/d' "$METADATA"
-					sed -i '/'$dir'br/d' "$METADATA"
-					sed -i '/'$dir'mbrainid/d' "$METADATA"
+		dirx="$(basename "$dir")"
+		dir2="${dirx//[^[:alnum:]]/}"
+		if [[ -f $METADATA/.$dir2.txt ]]; then
+			source $METADATA/.$dir2.txt
+			echo "Starting conversion of $dir"
+			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
+			php "$M4BPATH" merge "$dir" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b --name=$namevar --album=$albumvar --artist=$artistvar --albumartist=$albumartistvar "$brvar" "$mbrainid" --ffmpeg-threads=2 | pv -p -t -l -N "Merging $namevar" > /dev/null
+			rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
+			echo "Merge has finished."
+			echo "old='Previous folder size: $(du -hcs "$dir" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
+			echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
+			echo "del='ready'" >> "$METADATA"/."$dir2".txt
+		fi
+	done
+fi
+}
+
+function batchprocess2() {
+if [[ $BATCHMODE == "true" ]]; then
+	echo "Let's go over the folders that have been processed:"
+	for dir in "$INPUT"/*
+	do
+		dirx="$(basename "$dir")"
+		dir2="${dirx//[^[:alnum:]]/}"
+		if [ ! -d "SORTING"/* ]; then
+			if [[ -s $METADATA/.$dir2.txt ]]; then
+				source $METADATA/.$dir2.txt
+				if [ "$del" = ready ]; then
+					echo "Checking $dir ..."
+					echo "Previous folder size: $old"
+					echo "New folder size: $new"
+					read -e -p 'So should this source be deleted? y/n: ' delvar
+					if [[ $delvar = "y" ]]; then
+						echo "rm -rf '$dir'" >> "$DELTRUE"
+						sed -i '/exists/d' "$METADATA"/."$dir2".txt
+						sed -i '/name/d' "$METADATA"/."$dir2".txt
+						sed -i '/album/d' "$METADATA"/."$dir2".txt
+						sed -i '/artist/d' "$METADATA"/."$dir2".txt
+						sed -i '/albumartist/d' "$METADATA"/."$dir2".txt
+						sed -i '/br/d' "$METADATA"/."$dir2".txt
+						sed -i '/mbrainid/d' "$METADATA"/."$dir2".txt
+						sed -i '/del/d' "$METADATA"/."$dir2".txt
+						sed -i '/new/d' "$METADATA"/."$dir2".txt
+						sed -i '/old/d' "$METADATA"/."$dir2".txt
+					else
+						sed -i '/exists/d' "$METADATA"/."$dir2".txt
+						sed -i '/name/d' "$METADATA"/."$dir2".txt
+						sed -i '/album/d' "$METADATA"/."$dir2".txt
+						sed -i '/artist/d' "$METADATA"/."$dir2".txt
+						sed -i '/albumartist/d' "$METADATA"/."$dir2".txt
+						sed -i '/br/d' "$METADATA"/."$dir2".txt
+						sed -i '/mbrainid/d' "$METADATA"/."$dir2".txt
+					fi
 				fi
 			fi
 		fi
@@ -166,6 +195,7 @@ echo "Getting folder/files to use..."
 if [ -s "$INPUT"/.abook ]; then
 	echo "Error: List of folders was not cleaned properly"
 else
+	touch "$INPUT"/.abook
 	for dir in $INPUT/*
 	do
 		if [[ $(find "$dir"/* -type f -regex ".*\.\(mp3\|m4b\)" | wc -l) -gt 1 ]]; then
@@ -178,6 +208,7 @@ fi
 collectmeta
 # Process metadata batch
 batchprocess
+batchprocess2
 
 rm "$INPUT"/.abook
 
