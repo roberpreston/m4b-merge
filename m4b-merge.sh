@@ -100,6 +100,7 @@ function collectmeta() {
 				;;
 	  esac
 	done
+rm "$INPUT"/.abook
 }
 
 function batchprocess() {
@@ -158,7 +159,7 @@ function pushovr() {
 	# Check if user wanted notifications
 	if [ "$PUSHOVER" = "true" ]; then
 		echo "Sending Pushover notification..."
-		MESSAGE="m4b-merge script has finished."
+		MESSAGE="m4b-merge script has finished processing all specified audiobooks. Waiting on user to tell me what to delete."
 		TITLE="m4b-merge finished"
 		source "$COMMONCONF"
 		curl -s \
@@ -191,9 +192,12 @@ fi
 collectmeta
 # Process metadata batch
 batchprocess
-batchprocess2
-
-rm "$INPUT"/.abook
-
 # Send notification
 pushovr
+
+echo "Starting rclone background move"
+exec screen -dmS rclonem4b rclone move "$TOMOVE" "$OUTPUT" --transfers=1 --verbose --stats 15s
+
+batchprocess2
+
+echo "Script complete."
