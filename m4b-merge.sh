@@ -7,24 +7,23 @@ TOMOVE="/home/$USER/Downloads/audiobooks/SORTING"
 OUTPUT="/mnt/disk1/audiobooks"
 
 M4BPATH="/home/$USER/m4b-tool/m4b-tool.phar"
-METADATA="/home/$USER/m4b-tool"
 
 # Common config, shared between multiple scripts
 COMMONCONF="/home/$USER/.config/scripts/common.cfg"
 
 
 # -h help text to print
-usage="	$(basename "$0") $VER [-b] [-h] [-n]
+usage="	$(basename "$0") $VER [-b] [-f] [-h] [-n]
 
-	'-b' Batch mode.
+	'-f' File or folder to run from. Enter multiple files if you need, as: -f file1 -f file2 -f file3
 	'-h' This help text.
 	'-n' Enable Pushover notifications.
 	"
 
 # Flags for this script
-	while getopts ":bhn" option; do
+	while getopts ":f:hn" option; do
  case "${option}" in
-	b) BATCHMODE=true
+	f) FILEIN+=("$(realpath "$OPTARG")")
 		;;
 	h) echo "$usage"
  		exit
@@ -43,86 +42,61 @@ done
 ### Functions ###
 
 function collectmeta() {
-	IFS=$'\n'
-	select adbook in $(cat $INPUT/.abook) exit; do
-	  case "$adbook" in
-	      exit) echo "exiting"
-	            break ;;
-	         *) read -e -p 'Enter name: ' namevar
-			 	read -e -p 'Enter Albumname: ' albumvar
-			 	read -e -p 'Enter artist (Narrator): ' artistvar
-			 	read -e -p 'Enter albumartist (Author): ' albumartistvar
-				read -e -p 'Enter bitrate, if any: ' brvar
-				read -e -p 'Enter Musicbrainz ID, if any: ' mbrainid
-				if [[ singleuse == "true" ]]; then
-					if [[ -z $brvar ]]; then
-						brvar=""
-					else
-						brvar="--audio-bitrate=$brvar"
-					fi
-					if [[ -z $mbrainid ]]; then
-						mbrainid=""
-					else
-						mbrainid="--musicbrainz-id=$mbrainid"
-					fi
-			 		echo "Starting conversion of $adbook"
-			 		mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
-					php "$M4BPATH" merge "$INPUT"/"$adbook" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b --name="$namevar" --album="$albumvar" --artist="$artistvar" --albumartist="$albumartistvar" "$brvar" "$mbrainid" --ffmpeg-threads=2 | pv -p -t -l -N "Merging $namevar" > /dev/null
-					rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
-					echo "Merge has finished."
-					echo "Previous folder size: $(du -hcs "$INPUT"/"$adbook" | cut -f 1 | tail -n1)"
-					echo "New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)"
-					read -e -p 'Delete source folder? y/n ' delvar
-					if [[ $delvar = "y" ]]; then
-						rm -rf "$INPUT"/"$adbook"
-					fi
-				else
-					adbookx="$(basename "$adbook")"
-					adbook2="${adbookx//[^[:alnum:]]/}"
-					echo "exists=true" > "$METADATA"/."$adbook2".txt
-					echo "namevar='$namevar'" >> "$METADATA"/."$adbook2".txt
-					echo "albumvar='$albumvar'" >> "$METADATA"/."$adbook2".txt
-					echo "artistvar='$artistvar'" >> "$METADATA"/."$adbook2".txt
-					echo "albumartistvar='$albumartistvar'" >> "$METADATA"/."$adbook2".txt
-					if [[ -z $brvar ]]; then
-						brvar=""
-					else
-						brvar="--audio-bitrate='$brvar'"
-						echo "brvar='$brvar'" >> "$METADATA"/."$adbook2".txt
-					fi
-					if [[ -z $mbrainid ]]; then
-						mbrainid=""
-					else
-						mbrainid="--musicbrainz-id=$mbrainid"
-						echo "mbrainid='$mbrainid'" >> "$METADATA"/."$adbook2".txt
-					fi
-				fi
-				;;
-	  esac
+	#New shits
+	for SELDIR in "${FILEIN[@]}"; do
+		# Basename of array values
+		BASESELDIR="$(basename "$SELDIR")"
+		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
+
+		if [[ -f $M4BSELFILE ]]; then
+			echo "Metadata for this audiobook exists"
+			read -e -p 'Use existing metadata? y/n: ' useoldmeta
+			if [[ $useoldmeta == "n" ]]; then
+				echo -e "\e[92mEnter metadata for $BASESELDIR\e[0m"
+				# Each line has a line after input, adding that value to an array.
+				read -e -p 'Enter name: ' m4bvar
+				M4BARR+=("--name='$m4bvar';;")
+				read -e -p 'Enter Albumname: ' m4bvar
+				M4BARR+=("--album='$m4bvar';;")
+				read -e -p 'Enter artist (Narrator): ' m4bvar
+				M4BARR+=("--artist='$m4bvar';;")
+				read -e -p 'Enter albumartist (Author): ' m4bvar
+				M4BARR+=("--albumartist='$m4bvar';;")
+				read -e -p 'Enter bitrate, if any: ' -i "--audio-bitrate=" m4bvar
+				M4BARR+=("$m4bvar")
+				read -e -p 'Enter Musicbrainz ID, if any: ' -i "--musicbrainz-id=" m4bvar
+				M4BARR+=("$m4bvar")
+
+				# Make array into file
+				echo "${M4BARR[*]}" > "$M4BSELFILE"
+				# First make the directory destination for audiobook.
+				mkdir -p "$TOMOVE"/"$BASESELDIR"
+			fi
+		fi
 	done
-rm "$INPUT"/.abook
 }
 
 function batchprocess() {
-if [[ $BATCHMODE == "true" ]]; then
-	for dir in "$INPUT"/*
-	do
-		dirx="$(basename "$dir")"
-		dir2="${dirx//[^[:alnum:]]/}"
-		if [[ -f $METADATA/.$dir2.txt ]]; then
-			source $METADATA/.$dir2.txt
-			echo "Starting conversion of $(basename "$dir")"
-			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
-			php "$M4BPATH" merge "$dir" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b --name="$namevar" --album="$albumvar" --artist="$artistvar" --albumartist="$albumartistvar" "$brvar" "$mbrainid" --ffmpeg-threads=2 | pv -p -t -l -N "Merging "$namevar"" > /dev/null
-			rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
-			echo "Merge has finished."
-			echo "old='Previous folder size: $(du -hcs "$dir" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
-			echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
-			echo "del='ready'" >> "$METADATA"/."$dir2".txt
-			unset namevar albumvar artistvar albumartistvar old new del
-		fi
+	for SELDIR in "${FILEIN[@]}"; do
+		# Basename of array values
+		BASESELDIR="$(basename "$SELDIR")"
+		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
+
+		readarray M4BSEL <<<"$(tr ';;' '\n'<<<"$(cat "$M4BSELFILE")")"
+		albumartistvar="$(echo "${#M4BSEL[6]}" | cut -f 2 -d '=')"
+		albumvar="$(echo "${#M4BSEL[2]}" | cut -f 2 -d '=')"
+		namevar="$(echo "${#M4BSEL[0]}" | cut -f 2 -d '=')"
+
+		echo "Starting conversion of $(basename "$SELDIR")"
+		mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
+		php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" --ffmpeg-threads=8 | pv -p -t -l -N "Merging $namevar" > /dev/null
+		#rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
+		echo "Merge has finished."
+		#echo "old='Previous folder size: $(du -hcs "$SELDIR" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
+		#echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
+		#echo "del='ready'" >> "$METADATA"/."$dir2".txt
+		#unset namevar albumvar artistvar albumartistvar old new del
 	done
-fi
 }
 
 function batchprocess2() {
@@ -174,18 +148,16 @@ function pushovr() {
 
 ### End functions ###
 
-echo "Getting folder/files to use..."
-
-if [ -s "$INPUT"/.abook ]; then
-	echo "Error: List of folders was not cleaned properly"
-else
-	touch "$INPUT"/.abook
-	for dir in $INPUT/*
-	do
-		if [[ $(find "$dir"/* -type f -regex ".*\.\(mp3\|m4b\)" | wc -l) -gt 1 ]]; then
-			echo "$(basename "$dir")" >> "$INPUT"/.abook
+# Small one time check for 'pv'
+if [[ ! -f "$(dirname "$M4BPATH")"/.pv.lock ]]; then
+	if [[ $(which pv) == "" ]]; then
+		echo "The program for progress bar is missing."
+		read -e -p 'Install it now? y/n: ' pvvar
+		if [[ $pvvar == "y" ]]; then
+			sudo apt-get install pv
 		fi
-	done
+		touch "$(dirname "$M4BPATH")"/.pv.lock
+	fi
 fi
 
 # Gather metadata from user
@@ -195,8 +167,8 @@ batchprocess
 # Send notification
 pushovr
 
-echo "Starting rclone background move"
-exec screen -dmS rclonem4b rclone move "$TOMOVE" "$OUTPUT" --transfers=1 --verbose --stats 15s
+#echo "Starting rclone background move"
+#exec screen -dmS rclonem4b rclone move "$TOMOVE" "$OUTPUT" --transfers=1 --verbose --stats 15s
 
 batchprocess2
 
