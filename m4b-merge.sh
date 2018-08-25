@@ -51,27 +51,31 @@ function collectmeta() {
 		if [[ -f $M4BSELFILE ]]; then
 			echo "Metadata for this audiobook exists"
 			read -e -p 'Use existing metadata? y/n: ' useoldmeta
-			if [[ $useoldmeta == "n" ]]; then
-				echo -e "\e[92mEnter metadata for $BASESELDIR\e[0m"
-				# Each line has a line after input, adding that value to an array.
-				read -e -p 'Enter name: ' m4bvar
-				M4BARR+=("--name='$m4bvar';;")
-				read -e -p 'Enter Albumname: ' m4bvar
-				M4BARR+=("--album='$m4bvar';;")
-				read -e -p 'Enter artist (Narrator): ' m4bvar
-				M4BARR+=("--artist='$m4bvar';;")
-				read -e -p 'Enter albumartist (Author): ' m4bvar
-				M4BARR+=("--albumartist='$m4bvar';;")
-				read -e -p 'Enter bitrate, if any: ' -i "--audio-bitrate=" m4bvar
-				M4BARR+=("$m4bvar")
-				read -e -p 'Enter Musicbrainz ID, if any: ' -i "--musicbrainz-id=" m4bvar
-				M4BARR+=("$m4bvar")
+		fi
+		if [[ $useoldmeta != "y" ]]; then
+			echo -e "\e[92mEnter metadata for $BASESELDIR\e[0m"
+			# Each line has a line after input, adding that value to an array.
+			read -e -p 'Enter name: ' m4bvar1
+			read -e -p 'Enter Albumname: ' m4bvar2
+			read -e -p 'Enter artist (Narrator): ' m4bvar3
+			read -e -p 'Enter albumartist (Author): ' m4bvar4
+			#read -e -p 'Enter bitrate, if any: ' -i "--audio-bitrate=" m4bvar5
+			#read -e -p 'Enter Musicbrainz ID, if any: ' -i "--musicbrainz-id=" m4bvar6
 
-				# Make array into file
-				echo "${M4BARR[*]}" > "$M4BSELFILE"
-				# First make the directory destination for audiobook.
-				mkdir -p "$TOMOVE"/"$BASESELDIR"
-			fi
+			#BASEARRAY="$(echo $BASESELDIR | tr -dc '[:alnum:]\n\r' | tr '[:upper:]' '[:lower:]')"
+			M4BARR+=(
+			"--name='${m4bvar1// /_}'"
+			"--album='${m4bvar2// /_}'"
+			"--artist='${m4bvar3// /_}'"
+			"--albumartist='${m4bvar4// /_}'"
+			#"$m4bvar5"
+			#"$m4bvar6"
+			)
+
+			# Make array into file
+			echo "${M4BARR[*]}" > "$M4BSELFILE"
+			# First make the directory destination for audiobook.
+			mkdir -p "$TOMOVE"/"$BASESELDIR"
 		fi
 	done
 }
@@ -82,20 +86,26 @@ function batchprocess() {
 		BASESELDIR="$(basename "$SELDIR")"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
 
-		readarray M4BSEL <<<"$(tr ';;' '\n'<<<"$(cat "$M4BSELFILE")")"
-		albumartistvar="$(echo "${#M4BSEL[6]}" | cut -f 2 -d '=')"
-		albumvar="$(echo "${#M4BSEL[2]}" | cut -f 2 -d '=')"
-		namevar="$(echo "${#M4BSEL[0]}" | cut -f 2 -d '=')"
+		# IMport values from file into array.
+		readarray M4BSEL <<<"$(cat "$M4BSELFILE" | tr ' ' '\n' | tr '_' ' ')" #"$(tr ' ' '\n'<<<"$(cat "$M4BSELFILE")")"
+		namevar="$(echo "${M4BSEL[0]}" | cut -f 2 -d '=' | sed s/\'//g)"
+		albumvar="$(echo "${M4BSEL[1]}" | cut -f 2 -d '=' | sed s/\'//g)"
+		albumartistvar="$(echo "${M4BSEL[3]}" | cut -f 2 -d '=' | sed s/\'//g)"
 
-		echo "Starting conversion of $(basename "$SELDIR")"
-		mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
-		php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" --ffmpeg-threads=8 | pv -p -t -l -N "Merging $namevar" > /dev/null
-		#rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
-		echo "Merge has finished."
-		#echo "old='Previous folder size: $(du -hcs "$SELDIR" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
-		#echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
-		#echo "del='ready'" >> "$METADATA"/."$dir2".txt
-		#unset namevar albumvar artistvar albumartistvar old new del
+		if [[ -s $M4BSELFILE ]]; then
+			echo "Starting conversion of $(basename "$SELDIR")"
+			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
+			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" --ffmpeg-threads=8 #| pv -p -t -l -N "Merging $namevar" > /dev/null
+			#rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
+			echo "Merge has finished."
+			#echo "old='Previous folder size: $(du -hcs "$SELDIR" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
+			#echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
+			#echo "del='ready'" >> "$METADATA"/."$dir2".txt
+			#unset namevar albumvar artistvar albumartistvar old new del
+		else
+			echo "Error: metadata file does not exist"
+			exit 1
+		fi
 	done
 }
 
