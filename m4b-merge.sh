@@ -4,7 +4,7 @@
 #LOCAL FOLDERS
 INPUT="/home/$USER/incoming/audiobooks"
 TOMOVE="/home/$USER/Downloads/audiobooks/SORTING"
-OUTPUT="/mnt/disk1/audiobooks"
+OUTPUT="/mnt/hdd/audiobooks"
 
 M4BPATH="/home/$USER/m4b-tool/m4b-tool.phar"
 
@@ -48,10 +48,13 @@ function collectmeta() {
 		BASESELDIR="$(basename "$SELDIR")"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
 
+		# Check if we can use an existing metadata entry
 		if [[ -f $M4BSELFILE ]]; then
 			echo "Metadata for this audiobook exists"
 			read -e -p 'Use existing metadata? y/n: ' useoldmeta
 		fi
+
+		# Create new metadata file
 		if [[ $useoldmeta != "y" ]]; then
 			echo -e "\e[92mEnter metadata for $BASESELDIR\e[0m"
 			# Each line has a line after input, adding that value to an array.
@@ -59,17 +62,29 @@ function collectmeta() {
 			read -e -p 'Enter Albumname: ' m4bvar2
 			read -e -p 'Enter artist (Narrator): ' m4bvar3
 			read -e -p 'Enter albumartist (Author): ' m4bvar4
-			#read -e -p 'Enter bitrate, if any: ' -i "--audio-bitrate=" m4bvar5
-			#read -e -p 'Enter Musicbrainz ID, if any: ' -i "--musicbrainz-id=" m4bvar6
+			read -e -p 'Enter bitrate, if any (leave blank for none): ' m4bvar5
+			read -e -p 'Enter Musicbrainz ID, if any (leave blank for none): ' m4bvar6
 
-			#BASEARRAY="$(echo $BASESELDIR | tr -dc '[:alnum:]\n\r' | tr '[:upper:]' '[:lower:]')"
+			# Check if we need to include optional arguments in the array
+			if [[ -z $m4bvar5 ]]; then
+				bitrate=""
+			else
+				bitrate="--musicbrainz-id='$m4bvar5'"
+			fi
+			if [[ -z $m4bvar6 ]]; then
+				mbid=""
+			else
+				mbid="--musicbrainz-id='$m4bvar6'"
+			fi
+
+			# Put all values into an array
 			M4BARR+=(
 			"--name='${m4bvar1// /_}'"
 			"--album='${m4bvar2// /_}'"
 			"--artist='${m4bvar3// /_}'"
 			"--albumartist='${m4bvar4// /_}'"
-			#"$m4bvar5"
-			#"$m4bvar6"
+			"$bitrate"
+			"$mbid"
 			)
 
 			# Make array into file
@@ -86,22 +101,29 @@ function batchprocess() {
 		BASESELDIR="$(basename "$SELDIR")"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
 
-		# IMport values from file into array.
+		# Import values from file into array.
 		readarray M4BSEL <<<"$(cat "$M4BSELFILE" | tr ' ' '\n' | tr '_' ' ')" #"$(tr ' ' '\n'<<<"$(cat "$M4BSELFILE")")"
 		namevar="$(echo "${M4BSEL[0]}" | cut -f 2 -d '=' | sed s/\'//g)"
 		albumvar="$(echo "${M4BSEL[1]}" | cut -f 2 -d '=' | sed s/\'//g)"
 		albumartistvar="$(echo "${M4BSEL[3]}" | cut -f 2 -d '=' | sed s/\'//g)"
 
 		if [[ -s $M4BSELFILE ]]; then
-			echo "Starting conversion of $(basename "$SELDIR")"
+			echo "Starting conversion of "$namevar""
 			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
-			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" --ffmpeg-threads=8 #| pv -p -t -l -N "Merging $namevar" > /dev/null
-			#rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
-			echo "Merge has finished."
-			#echo "old='Previous folder size: $(du -hcs "$SELDIR" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
-			#echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"/."$dir2".txt
-			#echo "del='ready'" >> "$METADATA"/."$dir2".txt
-			#unset namevar albumvar artistvar albumartistvar old new del
+			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" #| pv -p -t -l -N "Merging $namevar" > /dev/null
+			echo "Merge has finished for "$namevar"."
+			rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
+
+			# Make sure output file exists as expected
+			if [ -s "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" ]; then
+				METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
+				echo "old='Previous folder size: $(du -hcs "$SELDIR" | cut -f 1 | tail -n1)'" > "$METADATA"
+				echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"
+				echo "del='ready'" >> "$METADATA"
+				unset namevar albumvar artistvar albumartistvar old new del
+			else
+				exit 1
+			fi
 		else
 			echo "Error: metadata file does not exist"
 			exit 1
@@ -110,33 +132,38 @@ function batchprocess() {
 }
 
 function batchprocess2() {
-if [[ $BATCHMODE == "true" ]]; then
 	echo "Let's go over the folders that have been processed:"
-	for dir in "$INPUT"/*
-	do
-		dirx="$(basename "$dir")"
-		dir2="${dirx//[^[:alnum:]]/}"
-		if [ ! -d "SORTING"/* ]; then
-			if [[ -s $METADATA/.$dir2.txt ]]; then
-				source $METADATA/.$dir2.txt
-				if [ "$del" = ready ]; then
-					echo "Checking $dir ..."
-					echo "Previous folder size: $old"
-					echo "New folder size: $new"
-					read -e -p 'So should this source be deleted? y/n: ' delvar
-					if [[ $delvar = "y" ]]; then
-						echo "rm -rf "$dir"" >> "$DELTRUE"
-						rm "$METADATA"/."$dir2".txt
-					fi
-				fi
+	for SELDIR in "${FILEIN[@]}"; do
+		METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
+
+		# Make sure metadata file exists before trying to process it.
+		if [[ -s $METADATA ]]; then
+			source $METADATA
+		else
+			echo "Error: metadata file not found. exiting..."
+			exit 1
+		fi
+
+		# Check that this metadata is ready to process, and then display info to user.
+		if [ "$del" = ready ]; then
+			echo "Checking $SELDIR ..."
+			echo "Previous folder size: $old"
+			echo "New folder size: $new"
+			read -e -p 'Should this source be deleted? y/n: ' delvar
+			if [[ $delvar == "y" ]]; then
+				echo "rm -rf "$dir"" >> "$DELTRUE"
+				rm "$METADATA"
 			fi
 		fi
 	done
 
-	echo "Ok, now deleting folders you confirmed..."
+	echo "Ok, now deleting the folders you confirmed..."
 
-	bash "$DELTRUE"
-fi
+	# Process removal commands on source folders.
+	for line in "$DELTRUE"; do
+		echo "Executing $line"
+		$line
+	done
 }
 
 function pushovr() {
