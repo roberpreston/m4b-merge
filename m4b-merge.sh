@@ -113,39 +113,49 @@ function collectmeta() {
 }
 
 function batchprocess() {
-	for SELDIR in "${FILEIN[@]}"; do
-		# Basename of array values
-		BASESELDIR="$(basename "$SELDIR")"
-		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
+	INPUTNUM="${#FILEIN[@]}"
+	# Output number of folders to process
+	echo "Let's begin processing input folders"
+	echo "Number of folders to process: $INPUTNUM"
 
-		# Import values from file into array.
-		readarray M4BSEL <<<"$(cat "$M4BSELFILE" | tr ' ' '\n' | tr '_' ' ')" #"$(tr ' ' '\n'<<<"$(cat "$M4BSELFILE")")"
-		namevar="$(echo "${M4BSEL[0]}" | cut -f 2 -d '=' | sed s/\'//g)"
-		albumvar="$(echo "${M4BSEL[1]}" | cut -f 2 -d '=' | sed s/\'//g)"
-		albumartistvar="$(echo "${M4BSEL[3]}" | cut -f 2 -d '=' | sed s/\'//g)"
+	for ((i=0; i < INPUTNUM; i++)); do
+		j=$((i+1))
+		#echo  "($j of $INPUTNUM): Processing ${FILEIN[$i]}"
+		for SELDIR in "${FILEIN[@]}"; do
+			# Basename of array values
+			BASESELDIR="$(basename "$SELDIR")"
+			M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
 
-		if [[ -s $M4BSELFILE ]]; then
-			echo "Starting conversion of "$namevar""
-			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
-			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" #| pv -p -t -l -N "Merging $namevar" > /dev/null
-			echo "Merge has finished for "$namevar"."
-			rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
+			# Import values from file into array.
+			readarray M4BSEL <<<"$(cat "$M4BSELFILE" | tr ' ' '\n' | tr '_' ' ')" #"$(tr ' ' '\n'<<<"$(cat "$M4BSELFILE")")"
+			namevar="$(echo "${M4BSEL[0]}" | cut -f 2 -d '=' | sed s/\'//g)"
+			albumvar="$(echo "${M4BSEL[1]}" | cut -f 2 -d '=' | sed s/\'//g)"
+			albumartistvar="$(echo "${M4BSEL[3]}" | cut -f 2 -d '=' | sed s/\'//g)"
 
-			# Make sure output file exists as expected
-			if [[ -s $TOMOVE/$albumartistvar/$albumvar/$namevar.m4b ]]; then
-				METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
-				echo "old='Previous folder size: $(du -hcs "$SELDIR" | cut -f 1 | tail -n1)'" > "$METADATA"
-				echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"
-				echo "del='ready'" >> "$METADATA"
-				unset namevar albumvar artistvar albumartistvar old new del
+			if [[ -s $M4BSELFILE ]]; then
+				#echo "Starting conversion of "$namevar""
+				mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
+				echo  "($j of $INPUTNUM): Processing $albumvar..."
+				php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" #| pv -l -p -t -N "Merging $albumvar" > /dev/null
+				echo "Merge has finished for "$namevar"."
+				rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
+
+				# Make sure output file exists as expected
+				if [[ -s $TOMOVE/$albumartistvar/$albumvar/$namevar.m4b ]]; then
+					METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
+					echo "old='Previous folder size: $(du -hcs "$SELDIR" | cut -f 1 | tail -n1)'" > "$METADATA"
+					echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"
+					echo "del='ready'" >> "$METADATA"
+					unset namevar albumvar artistvar albumartistvar old new del
+				else
+					exit 1
+				fi
 			else
+				echo "Error: metadata file does not exist"
 				exit 1
 			fi
-		else
-			echo "Error: metadata file does not exist"
-			exit 1
-		fi
-	done
+		done
+done
 }
 
 function batchprocess2() {
