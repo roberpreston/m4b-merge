@@ -132,7 +132,7 @@ function batchprocess() {
 			rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
 
 			# Make sure output file exists as expected
-			if [ -s "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" ]; then
+			if [[ -s $TOMOVE/$albumartistvar/$albumvar/$namevar.m4b ]]; then
 				METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
 				echo "old='Previous folder size: $(du -hcs "$SELDIR" | cut -f 1 | tail -n1)'" > "$METADATA"
 				echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"
@@ -223,8 +223,8 @@ batchprocess
 # Send notification
 pushovr
 
-#echo "Starting rclone background move"
-#exec screen -dmS rclonem4b rclone move "$TOMOVE" "$OUTPUT" --transfers=1 --verbose --stats 15s
+echo "Starting rclone background move"
+exec screen -dmS rclonem4b rclone move "$TOMOVE" "$OUTPUT" --transfers=1 --verbose --stats 15s
 
 batchprocess2
 
