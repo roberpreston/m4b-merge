@@ -136,7 +136,7 @@ function batchprocess() {
 				#echo "Starting conversion of "$namevar""
 				mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
 				echo  "($j of $INPUTNUM): Processing $albumvar..."
-				php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" #| pv -l -p -t -N "Merging $albumvar" > /dev/null
+				php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" --mark-tracks -q --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" #| pv -l -p -t -N "Merging $albumvar" > /dev/null
 				echo "Merge has finished for "$namevar"."
 				rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
 
