@@ -133,7 +133,7 @@ function batchprocess() {
 		COUNTER=1
 
 		# Import values from file into array.
-		readarray M4BSEL <<<"$(cat "$M4BSELFILE" | tr ' ' '\n' | tr '_' ' ')" #"$(tr ' ' '\n'<<<"$(cat "$M4BSELFILE")")"
+		readarray M4BSEL <<<"$(cat "$M4BSELFILE" | tr ' ' '\n' | tr '_' ' ')"
 		namevar="$(echo "${M4BSEL[0]}" | cut -f 2 -d '=' | sed s/\'//g)"
 		albumvar="$(echo "${M4BSEL[1]}" | cut -f 2 -d '=' | sed s/\'//g)"
 		albumartistvar="$(echo "${M4BSEL[3]}" | cut -f 2 -d '=' | sed s/\'//g)"
@@ -157,7 +157,7 @@ function batchprocess() {
 				exit 1
 			fi
 		else
-			echo "Error: metadata file does not exist"
+			echo "Error: metadata file for $SELDIR does not exist"
 			exit 1
 		fi
 	done
@@ -167,6 +167,7 @@ function batchprocess2() {
 	echo "Let's go over the folders that have been processed:"
 	for SELDIR in "${FILEIN[@]}"; do
 		METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
+		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
 
 		# Make sure metadata file exists before trying to process it.
 		if [[ -s $METADATA ]]; then
@@ -183,8 +184,9 @@ function batchprocess2() {
 			echo "New folder size: $new"
 			read -e -p 'Should this source be deleted? y/n: ' delvar
 			if [[ $delvar == "y" ]]; then
-				echo "rm -rf "$dir"" >> "$DELTRUE"
+				echo "rm -rf "$SELDIR"" >> "$DELTRUE"
 				rm "$METADATA"
+				rm "$M4BSELFILE"
 			fi
 		fi
 	done
