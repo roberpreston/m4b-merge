@@ -146,6 +146,7 @@ function batchprocess() {
 			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" --mark-tracks --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
 			echo "Merge has finished for "$namevar"."
 			rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
+			((COUNTER++))
 
 			# Make sure output file exists as expected
 			if [[ -s $TOMOVE/$albumartistvar/$albumvar/$namevar.m4b ]]; then
@@ -230,6 +231,12 @@ if [[ ! -f "$(dirname "$M4BPATH")"/.pv.lock ]]; then
 		fi
 		touch "$(dirname "$M4BPATH")"/.pv.lock
 	fi
+fi
+
+# Make sure user gave usable INPUT
+if [[ -z $FILEIN ]]; then
+	echo "Error: No file inputs given."
+	exit 1
 fi
 
 # Find some information on input FOLDERS
