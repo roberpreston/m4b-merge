@@ -145,7 +145,6 @@ function batchprocess() {
 			echo  "($COUNTER of $INPUTNUM): Processing $albumvar..."
 			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" --mark-tracks --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
 			echo "Merge has finished for "$namevar"."
-			rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
 			((COUNTER++))
 
 			# Make sure output file exists as expected
@@ -155,6 +154,7 @@ function batchprocess() {
 				echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"
 				echo "del='ready'" >> "$METADATA"
 				unset namevar albumvar artistvar albumartistvar old new del
+				rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
 			else
 				exit 1
 			fi
