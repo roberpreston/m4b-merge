@@ -122,6 +122,8 @@ function collectmeta() {
 
 function batchprocess() {
 	INPUTNUM="${#FILEIN[@]}"
+	COUNTER=1
+	((COUNTER++))
 	# Output number of folders to process
 	echo "Let's begin processing input folders"
 	echo "Number of folders to process: $INPUTNUM"
@@ -130,7 +132,7 @@ function batchprocess() {
 		# Basename of array values
 		BASESELDIR="$(basename "$SELDIR")"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
-		COUNTER=1
+		
 
 		# Import values from file into array.
 		readarray M4BSEL <<<"$(cat "$M4BSELFILE" | tr ' ' '\n' | tr '_' ' ')"
@@ -141,7 +143,7 @@ function batchprocess() {
 		if [[ -s $M4BSELFILE ]]; then
 			#echo "Starting conversion of "$namevar""
 			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
-			echo  "($((COUNTER++)) of $INPUTNUM): Processing $albumvar..."
+			echo  "($COUNTER of $INPUTNUM): Processing $albumvar..."
 			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" --mark-tracks --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
 			echo "Merge has finished for "$namevar"."
 			rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
