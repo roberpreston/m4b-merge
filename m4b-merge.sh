@@ -122,7 +122,6 @@ function collectmeta() {
 
 function batchprocess() {
 	INPUTNUM="${#FILEIN[@]}"
-	COUNTER=1
 	((COUNTER++))
 	# Output number of folders to process
 	echo "Let's begin processing input folders"
@@ -132,7 +131,7 @@ function batchprocess() {
 		# Basename of array values
 		BASESELDIR="$(basename "$SELDIR")"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
-		
+
 
 		# Import values from file into array.
 		readarray M4BSEL <<<"$(cat "$M4BSELFILE" | tr ' ' '\n' | tr '_' ' ')"
