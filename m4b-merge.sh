@@ -2,7 +2,6 @@
 # Script to use m4b-tool to merge audiobooks, easily.
 
 #LOCAL FOLDERS
-INPUT="/home/$USER/incoming/audiobooks"
 TOMOVE="/home/$USER/Downloads/audiobooks/SORTING"
 OUTPUT="/mnt/hdd/audiobooks"
 
@@ -103,17 +102,16 @@ function collectmeta() {
 
 			# Put all values into an array
 			M4BARR=(
-			"--name='${m4bvar1// /_}'"
-			"--album='${m4bvar2// /_}'"
-			"--artist='${m4bvar3// /_}'"
-			"--albumartist='${m4bvar4// /_}'"
+			"${m4bvar1// /_}"
+			"${m4bvar2// /_}"
+			"${m4bvar3// /_}"
+			"${m4bvar4// /_}"
 			"$bitrate"
 			"$mbid"
 			)
 
 			# Make array into file
 			echo "${M4BARR[*]}" > "$M4BSELFILE"
-			unset "$M4BARR"
 			# First make the directory destination for audiobook.
 			mkdir -p "$TOMOVE"/"$BASESELDIR"
 		fi
@@ -135,15 +133,17 @@ function batchprocess() {
 
 		# Import values from file into array.
 		readarray M4BSEL <<<"$(cat "$M4BSELFILE" | tr ' ' '\n' | tr '_' ' ')"
-		namevar="$(echo "${M4BSEL[0]}" | cut -f 2 -d '=' | sed s/\'//g)"
-		albumvar="$(echo "${M4BSEL[1]}" | cut -f 2 -d '=' | sed s/\'//g)"
-		albumartistvar="$(echo "${M4BSEL[3]}" | cut -f 2 -d '=' | sed s/\'//g)"
+		namevar="$(echo "${M4BSEL[0]}" | sed s/\'//g)"
+		albumvar="$(echo "${M4BSEL[1]}" | sed s/\'//g)"
+		albumartistvar="$(echo "${M4BSEL[3]}" | sed s/\'//g)"
 
 		if [[ -s $M4BSELFILE ]]; then
 			#echo "Starting conversion of "$namevar""
 			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
 			echo  "($COUNTER of $INPUTNUM): Processing $albumvar..."
-			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[*]}" --mark-tracks --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
+			# By all means this should work, but it produces bad metadata.
+			#php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b ${M4BSEL[*]//$'\n'/} --force --no-cache --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
+			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b --name="$namevar" --album="$albumvar" --artist="$artistvar" --albumartist="$albumartistvar" --force --no-cache --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
 			echo "Merge has finished for "$namevar"."
 			((COUNTER++))
 
