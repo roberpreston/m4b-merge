@@ -72,7 +72,7 @@ function collectmeta() {
 		else
 			# Check if we can use an existing metadata entry
 			if [[ -f $M4BSELFILE ]]; then
-				echo "Metadata for this audiobook exists"
+				echo "Metadata for $BASESELDIR exists"
 				read -e -p 'Use existing metadata? y/n: ' useoldmeta
 			fi
 		fi
@@ -251,8 +251,8 @@ batchprocess
 pushovr
 
 echo "Starting rclone background move"
-exec screen -dmS rclonem4b rclone move "$TOMOVE" "$OUTPUT" --transfers=1 --verbose --stats 15s
+tmux new-session -d -s rclonem4b 'rclone move "$TOMOVE" "$OUTPUT" --transfers=1 --verbose --stats 15s'
 
-batchprocess2
+#batchprocess2
 
 echo "Script complete."
