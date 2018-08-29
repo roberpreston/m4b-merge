@@ -102,9 +102,13 @@ function collectmeta() {
 
 			# Put all values into an array
 			M4BARR=(
+			"--name"
 			"${m4bvar1// /_}"
+			"--album"
 			"${m4bvar2// /_}"
+			"--artist"
 			"${m4bvar3// /_}"
+			"--albumartist"
 			"${m4bvar4// /_}"
 			"$bitrate"
 			"$mbid"
@@ -133,17 +137,15 @@ function batchprocess() {
 
 		# Import values from file into array.
 		readarray M4BSEL <<<"$(cat "$M4BSELFILE" | tr ' ' '\n' | tr '_' ' ')"
-		namevar="$(echo "${M4BSEL[0]}" | sed s/\'//g)"
-		albumvar="$(echo "${M4BSEL[1]}" | sed s/\'//g)"
-		albumartistvar="$(echo "${M4BSEL[3]}" | sed s/\'//g)"
+		namevar="$(echo "${M4BSEL[1]}" | sed s/\'//g)"
+		albumvar="$(echo "${M4BSEL[3]}" | sed s/\'//g)"
+		albumartistvar="$(echo "${M4BSEL[7]}" | sed s/\'//g)"
 
 		if [[ -s $M4BSELFILE ]]; then
 			#echo "Starting conversion of "$namevar""
 			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
 			echo  "($COUNTER of $INPUTNUM): Processing $albumvar..."
-			# By all means this should work, but it produces bad metadata.
-			#php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b ${M4BSEL[*]//$'\n'/} --force --no-cache --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
-			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b --name="$namevar" --album="$albumvar" --artist="$artistvar" --albumartist="$albumartistvar" --force --no-cache --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
+			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --no-cache --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
 			echo "Merge has finished for "$namevar"."
 			((COUNTER++))
 
