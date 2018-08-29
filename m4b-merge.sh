@@ -116,8 +116,6 @@ function collectmeta() {
 
 			# Make array into file
 			echo "${M4BARR[*]}" > "$M4BSELFILE"
-			# First make the directory destination for audiobook.
-			mkdir -p "$TOMOVE"/"$BASESELDIR"
 		fi
 	done
 }
