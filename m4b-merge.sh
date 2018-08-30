@@ -46,18 +46,29 @@ done
 function preprocess() {
 	# Let's first check that the input folder, actually should be merged.
 	for SELDIR in "${FILEIN[@]}"; do
-		FINDCMD="$(find "$SELDIR" -type f -iname ".$EXT" | wc -c)"
-		EXT="m4b"
-		if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
-			echo "We only found $FINDCMD $EXT files in $SELDIR. It is not recommended to merge so few files"
-			exit 1
-		fi
-		EXT="mp3"
-		if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
-			echo "We only found $FINDCMD $EXT files in $SELDIR. It is not recommended to merge so few files"
-			exit 1
-		fi
+		# Import metadata into an array, so we can use it.
+		importmetadata
+
+		# Common extensions for audiobooks.
+		EXTARR=(m4b mp3 m4a)
+		# Check input for each of the above file types, ensuring we are not dealing with a pre-merged input.
+		for EXT in ${EXTARR[@]}; do
+			FINDCMD="$(find "$SELDIR" -type f -iname ".$EXT" | wc -c)"
+			if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
+				echo "NOTICE: only found $FINDCMD $EXT files in $SELDIR. Cleaning up file/folder names, but not running merge."
+				singlefile
+				echo "Processed single input file for $namevar."
+			else
+				# After we verify the input needs to be merged, lets run the merge command.
+				php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
+				echo "Merge completed for $namevar."
+			fi
+		done
 	done
+}
+
+function singlefile() {
+	mv "$SELDIR"/*."$EXT" "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" --verbose
 }
 
 function collectmeta() {
@@ -119,6 +130,17 @@ function collectmeta() {
 		fi
 	done
 }
+function importmetadata() {
+	# Basename of array values
+	BASESELDIR="$(basename "$SELDIR")"
+	M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
+
+	# Import values from file into array.
+	readarray M4BSEL <<<"$(cat "$M4BSELFILE" | tr ' ' '\n' | tr '_' ' ')"
+	namevar="$(echo "${M4BSEL[1]}" | sed s/\'//g)"
+	albumvar="$(echo "${M4BSEL[3]}" | sed s/\'//g)"
+	albumartistvar="$(echo "${M4BSEL[7]}" | sed s/\'//g)"
+}
 
 function batchprocess() {
 	INPUTNUM="${#FILEIN[@]}"
@@ -132,19 +154,15 @@ function batchprocess() {
 		BASESELDIR="$(basename "$SELDIR")"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
 
-
-		# Import values from file into array.
-		readarray M4BSEL <<<"$(cat "$M4BSELFILE" | tr ' ' '\n' | tr '_' ' ')"
-		namevar="$(echo "${M4BSEL[1]}" | sed s/\'//g)"
-		albumvar="$(echo "${M4BSEL[3]}" | sed s/\'//g)"
-		albumartistvar="$(echo "${M4BSEL[7]}" | sed s/\'//g)"
+		# Import metadata into an array, so we can use it.
+		importmetadata
 
 		if [[ -s $M4BSELFILE ]]; then
 			#echo "Starting conversion of "$namevar""
 			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
 			echo  "($COUNTER of $INPUTNUM): Processing $albumvar..."
-			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --no-cache --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
-			echo "Merge has finished for "$namevar"."
+			# Process input, and determine if we need to run merge, or just cleanup the metadata a bit.
+			preprocess
 			((COUNTER++))
 
 			# Make sure output file exists as expected
@@ -236,11 +254,10 @@ fi
 # Make sure user gave usable INPUT
 if [[ -z $FILEIN ]]; then
 	echo "Error: No file inputs given."
+	echo "$usage"
 	exit 1
 fi
 
-# Find some information on input FOLDERS
-preprocess
 # Gather metadata from user
 collectmeta
 # Process metadata batch
