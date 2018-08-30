@@ -80,16 +80,14 @@ function collectmeta() {
 
 		if [[ $YPROMPT == "true" ]]; then
 			useoldmeta="y"
-		else
-			# Check if we can use an existing metadata entry
-			if [[ -f $M4BSELFILE ]]; then
-				echo "Metadata for $BASESELDIR exists"
-				read -e -p 'Use existing metadata? y/n: ' useoldmeta
-			fi
+		elif [[ -s $M4BSELFILE ]]; then # Check if we can use an existing metadata entry
+			echo "Metadata for $BASESELDIR exists"
+			read -e -p 'Use existing metadata? y/n: ' useoldmeta
+		elif [[ ! -f $M4BSELFILE ]]; then # Check if we can use an existing metadata entry
+			useoldmeta="n"
 		fi
 
-		# Create new metadata file
-		if [[ $useoldmeta != "y" ]]; then
+		if [[ $useoldmeta == "n" ]]; then
 			echo -e "\e[92mEnter metadata for $BASESELDIR\e[0m"
 			# Each line has a line after input, adding that value to an array.
 			read -e -p 'Enter name: ' m4bvar1
@@ -127,9 +125,14 @@ function collectmeta() {
 
 			# Make array into file
 			echo "${M4BARR[*]}" > "$M4BSELFILE"
+		elif [[ -s $M4BSELFILE && $useoldmeta == "y" ]]; then
+			echo "Using this metadata then:"
+			echo "$(cat "$M4BSELFILE" | tr '_' ' ')"
+			echo ""
 		fi
 	done
 }
+
 function importmetadata() {
 	# Basename of array values
 	BASESELDIR="$(basename "$SELDIR")"
