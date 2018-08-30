@@ -45,26 +45,28 @@ done
 
 function preprocess() {
 	# Let's first check that the input folder, actually should be merged.
-	for SELDIR in "${FILEIN[@]}"; do
-		# Import metadata into an array, so we can use it.
-		importmetadata
+	# Import metadata into an array, so we can use it.
+	importmetadata
 
-		# Common extensions for audiobooks.
-		EXTARR=(m4b mp3 m4a)
-		# Check input for each of the above file types, ensuring we are not dealing with a pre-merged input.
-		for EXT in ${EXTARR[@]}; do
-			FINDCMD="$(find "$SELDIR" -type f -iname ".$EXT" | wc -c)"
-			if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
-				echo "NOTICE: only found $FINDCMD $EXT files in $SELDIR. Cleaning up file/folder names, but not running merge."
-				singlefile
-				echo "Processed single input file for $namevar."
-			else
-				# After we verify the input needs to be merged, lets run the merge command.
-				php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
-				echo "Merge completed for $namevar."
-			fi
-		done
+	# Common extensions for audiobooks.
+	EXTARR=(m4b mp3 m4a)
+	# Check input for each of the above file types, ensuring we are not dealing with a pre-merged input.
+	for EXT in ${EXTARR[@]}; do
+		FINDCMD="$(find "$SELDIR" -type f -iname ".$EXT" | wc -c)"
+		if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
+			echo "NOTICE: only found $FINDCMD $EXT files in $BASESELDIR. Cleaning up file/folder names, but not running merge."
+			singlefile
+			echo "Processed single input file for $namevar."
+			sfile="true"
+		fi
 	done
+
+	if [[ $sfile != "true" ]]; then
+		# After we verify the input needs to be merged, lets run the merge command.
+		php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
+		echo "Merge completed for $namevar."
+	fi
+	unset sfile
 }
 
 function singlefile() {
