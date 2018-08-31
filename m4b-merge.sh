@@ -70,7 +70,7 @@ function preprocess() {
 		FINDCMD="$(find "$SELDIR" -type f -iname *."$EXT" | wc -c)"
 		if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
 			echo "NOTICE: only found $FINDCMD $EXT files in $BASESELDIR. Cleaning up file/folder names, but not running merge."
-			sfile="true"
+			sfile="false"
 			singlefile
 		fi
 	elif [[ -f $SELDIR ]]; then
@@ -78,42 +78,77 @@ function preprocess() {
 		singlefile
 	fi
 
-	if [[ $sfile != "true" ]]; then
-		if [[ -d $SELDIR ]]; then
-			# After we verify the input needs to be merged, lets run the merge command.
-			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
-			echo "Merge completed for $namevar."
-		fi
+	if [[ $sfile == "false" ]] && [[ -d $SELDIR ]]; then
+		# After we verify the input needs to be merged, lets run the merge command.
+		php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
+		echo "Merge completed for $namevar."
 	fi
 }
 
 function audibleparser() {
-	read -e -p 'Enter Audible ASIN: ' ASIN
+	AUDMETAFILE="/tmp/.audmeta.$BASESELDIR.txt"
 
-	if [[ -z $ASIN ]]; then
-		echo "ERROR: No ASIN was entered. Exiting."
-		exit 1
+	if [[ $YPROMPT == "true" ]]; then
+		useoldmeta="y"
+	elif [[ -s $AUDMETAFILE ]]; then # Check if we can use existing audible data
+		echo "Cached Audible metadata for $BASESELDIR exists"
+		read -e -p 'Use existing metadata? y/n: ' useoldmeta
+	elif [[ ! -f $AUDMETAFILE ]]; then # Check if we can use an existing metadata entry
+		useoldmeta="n"
 	fi
 
-	AUDMETAFILE="/tmp/.audmeta.$BASESELDIR.txt"
-	CURLCMD="$(curl https://www.audible.com/pd/$ASIN -s -o "$AUDMETAFILE")"
-	NARRCMD="$(cat "$AUDMETAFILE" | grep "searchNarrator=" | grep -o -P '(?<=>).*(?=<)')"
-	AUTHORCMD="$(cat "$AUDMETAFILE" | grep "/author/" | grep -o -P '(?<=>).*(?=<)')"
-	TICTLECMD="$(cat "$AUDMETAFILE" | grep "title" | grep -o -P '(?<=>).*(?=<)' | cut -d '-' -f 1 | sed -e 's/[[:space:]]*$//')"
-	SERIESCMD="$(cat "$AUDMETAFILE" | grep "/series?" | grep -o -P '(?<=>).*(?=<)')"
-	BOOKNUM="$(cat "$AUDMETAFILE" | grep "/series?" | grep "/series?" -A 1 | grep -o -P '(?<=>).*(?=)' | cut -d ',' -f 2 | sed -e 's/^[[:space:]]*//')"
-	SUBTITLE="$(cat "$AUDMETAFILE" | grep "subtitle" -A 5 | tail -n1 | sed -e 's/^[[:space:]]*//')"
+	if [[ $useoldmeta == "n" ]]; then
+		echo ""
+		echo "Enter Audible ASIN for $BASESELDIR"
+		read -e -p 'ASIN: ' ASIN
+
+		if [[ -z $ASIN ]]; then
+			echo "ERROR: No ASIN was entered. Exiting."
+			exit 1
+		elif [[ $(curl -o /dev/null -L --silent --head --write-out '%{http_code}\n' https://www.audible.com/pd/$ASIN) != "200" ]]; then
+			echo "ERROR: Could not access ASIN for $BASESELDIR (Was it entered correctly?)"
+			exit 1
+		fi
+	fi
+	if [[ ! -s $AUDMETAFILE ]] || [[ -s $AUDMETAFILE && $useoldmeta == "n" ]]; then
+		echo "Fetching metadata from Audible..."
+		curl -L -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.89 Safari/537.36" https://www.audible.com/pd/$ASIN -s -o "$AUDMETAFILE"
+	fi
+
+	unset useoldmeta
+
+	# Check for multiple narrators
+	NARRCMD="$( grep "searchNarrator=" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | recode html..ascii)"
+	if [[ $(echo "$NARRCMD" | wc -l) -gt 1 ]]; then
+		echo "NOTICE: Correcting formatting for multiple narrators..."
+		NUM="$(echo "$NARRCMD" | wc -l)"
+		ADJNUM=$(seq -s, 2 "$NUM")
+		NARRCMD="$(cat "$AUDMETAFILE" | grep "searchNarrator=" | grep -o -P '(?<=>).*(?=<)' | sed -e "${ADJNUM}s#^#, #" | tr -d '\n' | recode html..ascii)"
+	fi
+	AUTHORCMD="$(grep "/author/" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | head -n1 | recode html..ascii)"
+	# Prefer being strict about authors, unless we can't find them.
+	if [[ -z $AUTHORCMD ]]; then
+		echo "NOTICE: Could not find author using default method. Trying backup method..."
+		AUTHORCMD="$(cat "$AUDMETAFILE" | grep "author" | grep -o -P '(?<=>).*(?=<)' | head -n1 | recode html..ascii)"
+	fi
+	TICTLECMD="$(grep "title" "$AUDMETAFILE" | head -n1 | grep -o -P '(?<=>).*(?=<)' | cut -d '-' -f 1 | sed -e 's/[[:space:]]*$//' | recode html..ascii)"
+	SERIESCMD="$(grep "/series?" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | recode html..ascii)"
+	BOOKNUM="$(grep "/series?" -A 1 "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=)' | cut -d ',' -f 2 | sed -e 's/^[[:space:]]*//' | recode html..ascii)"
+	#SUBTITLE="$(grep "subtitle" -A 5 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | recode html..ascii)"
+	BKDATE1="$(grep "releaseDateLabel" -A 3 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | tr '-' '/' | recode html..ascii)"
+	BKDATE="$(date -d "$BKDATE1" +%Y-%m-%d)"
 
 	# Check what metadata we can actually use for the title/name
+	m4bvar1="$TICTLECMD" # Default
 	if [[ -n $SERIESCMD && -n $BOOKNUM && -z "$SUBTITLE" ]]; then
 		m4bvar1="$TICTLECMD ($SERIESCMD, $BOOKNUM)"
+	elif [[ -z $SERIESCMD && -z $BOOKNUM && -z "$SUBTITLE" ]]; then
+		m4bvar1="$TICTLECMD"
 	elif [[ -z $SERIESCMD && -z $BOOKNUM && -n "$SUBTITLE" ]]; then
 		m4bvar1="$TICTLECMD - $SUBTITLE"
 	elif [[ -n $SERIESCMD && -n $BOOKNUM && -n $SUBTITLE ]]; then
 		# Don't include subtitle text if it is just saying what book in the series it is.
-		if [[ -n "$(echo "$SUBTITLE" | grep "$BOOKNUM")" ]]; then
-			m4bvar1="$TICTLECMD ($SERIESCMD, $BOOKNUM)"
-		else
+		if [[ -z "$(echo "$SUBTITLE" | grep -o "$BOOKNUM")" ]] && [[ ! $SUBTITLE == "$SERIESCMD, $BOOKNUM" ]]; then
 			m4bvar1="$TICTLECMD - $SUBTITLE ($SERIESCMD, $BOOKNUM)"
 		fi
 	fi
@@ -121,15 +156,33 @@ function audibleparser() {
 	m4bvar2="$TICTLECMD"
 	m4bvar3="$NARRCMD"
 	m4bvar4="$AUTHORCMD"
+
+	makearray
+
+	echo "Metadata parsed as ( Title | Album | Narrator | Author ):"
+	echo "$m4bvar1 | $m4bvar2 | $m4bvar3 | $m4bvar4"
+	echo ""
+	unset m4bvar1 m4bvar2 m4bvar3 m4bvar4
+}
+
+function mp3metaeditor() {
+	if [[ $EXT == "mp3" ]]; then
+		echo "Editing mp3 tags..."
+		mid3v2 "$(dirname "$SELDIR")"/"$BASESELDIR" --song="$m4bvar1" --album="$m4bvar2" --artist="$m4bvar3" --TXXX="ALBUMARTIST:$m4bvar4" --date="$BKDATE"
+	fi
 }
 
 function singlefile() {
 	if [[ $sfile == "true" ]]; then
 		if [[ -f $SELDIR ]]; then
-			mv "$(dirname "$SELDIR")"/"$BASESELDIR" "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" --verbose
+			EXT="${SELDIR: -4}"
+			mp3metaeditor
+			mv "$(dirname "$SELDIR")"/"$BASESELDIR" "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar""$EXT" --verbose
 		fi
-	elif [[ -d $SELDIR ]]; then
-		mv "$(dirname "$SELDIR")"/"$BASESELDIR"/*.$EXT "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" --verbose
+	elif [[ $sfile == "false" ]]; then
+		if [[ -d $SELDIR ]]; then
+			mv "$(dirname "$SELDIR")"/"$BASESELDIR"/*.$EXT "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" --verbose
+		fi
 	fi
 	echo "Processed single input file for $namevar."
 }
@@ -162,7 +215,6 @@ function collectmeta() {
 
 		if [[ $AUDIBLEMETA == "true" ]]; then
 			audibleparser
-			makearray
 		else
 			if [[ $YPROMPT == "true" ]]; then
 				useoldmeta="y"
@@ -242,7 +294,7 @@ function batchprocess() {
 			((COUNTER++))
 
 			# Make sure output file exists as expected
-			if [[ -s $TOMOVE/$albumartistvar/$albumvar/$namevar.m4b ]]; then
+			if [[ $sfile == "false" ]] && [[ -d $SELDIR ]] && [[ -s $TOMOVE/$albumartistvar/$albumvar/$namevar.m4b ]]; then
 				METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
 				echo "old='Previous folder size: $(du -hcs "$SELDIR" | cut -f 1 | tail -n1)'" > "$METADATA"
 				echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"
