@@ -49,28 +49,47 @@ function preprocess() {
 	importmetadata
 
 	# Common extensions for audiobooks.
-	EXTARR=(m4b mp3 m4a)
 	# Check input for each of the above file types, ensuring we are not dealing with a pre-merged input.
-	for EXT in ${EXTARR[@]}; do
-		FINDCMD="$(find "$SELDIR" -type f -iname ".$EXT" | wc -c)"
-		if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
-			echo "NOTICE: only found $FINDCMD $EXT files in $BASESELDIR. Cleaning up file/folder names, but not running merge."
-			singlefile
-			echo "Processed single input file for $namevar."
-			sfile="true"
-		fi
-	done
+	EXT1="$(ls *.m4a 2>/dev/null | wc -l)"
+	EXT2="$(ls *.mp3 2>/dev/null | wc -l)"
+	EXT3="$(ls *.m4b 2>/dev/null | wc -l)"
+
+	if [[ $EXT1 -gt 1 ]]; then
+		EXT="m4a"
+	elif [[ $EXT2 -gt 1 ]]; then
+		EXT="mp3"
+	elif [[ $EXT3 -gt 1 ]]; then
+		EXT="m4b"
+	fi
+
+	FINDCMD="$(find "$SELDIR" -type f -iname *."$EXT" | wc -c)"
+	if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
+		echo "NOTICE: only found $FINDCMD $EXT files in $BASESELDIR. Cleaning up file/folder names, but not running merge."
+		sfile="true"
+		singlefile
+	elif [[ -f $SELDIR ]]; then
+		sfile="true"
+		singlefile
+	fi
 
 	if [[ $sfile != "true" ]]; then
-		# After we verify the input needs to be merged, lets run the merge command.
-		php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
-		echo "Merge completed for $namevar."
+		if [[ -d $SELDIR ]]; then
+			# After we verify the input needs to be merged, lets run the merge command.
+			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
+			echo "Merge completed for $namevar."
+		fi
 	fi
-	unset sfile
 }
 
 function singlefile() {
-	mv "$SELDIR"/*."$EXT" "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" --verbose
+	if [[ $sfile == "true" ]]; then
+		if [[ -f $SELDIR ]]; then
+			mv "$(dirname "$SELDIR")"/"$BASESELDIR" "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" --verbose
+		fi
+	elif [[ -d $SELDIR ]]; then
+		mv "$(dirname "$SELDIR")"/"$BASESELDIR"/*.$EXT "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" --verbose
+	fi
+	echo "Processed single input file for $namevar."
 }
 
 function collectmeta() {
