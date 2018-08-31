@@ -90,21 +90,27 @@ function preprocess() {
 function audibleparser() {
 	read -e -p 'Enter Audible ASIN: ' ASIN
 
-	CURLCMD="$(curl https://www.audible.com/pd/$ASIN -s)"
-	NARRCMD="$("$CURLCMD" | grep "searchNarrator=" | grep -o -P '(?<=>).*(?=<)')"
-	AUTHORCMD="$("$CURLCMD" | grep "/author/" | grep -o -P '(?<=>).*(?=<)')"
-	TICTLECMD="$("$CURLCMD" | grep "title" | grep -o -P '(?<=>).*(?=<)' | cut -d '-' -f 1)"
-	SERIESCMD="$("$CURLCMD" | grep "/series?" | grep -o -P '(?<=>).*(?=<)')"
-	BOOKNUM="$("$CURLCMD" | grep "/series?" | grep "/series?" -A 1 | grep -o -P '(?<=>).*(?=)' | cut -d ',' -f 2 | sed -e 's/^[[:space:]]*//')"
-	SUBTITLE="$("$CURLCMD" | grep "subtitle" -A 5 | tail -n1 | sed -e 's/^[[:space:]]*//')"
+	AUDMETAFILE="/tmp/.audmeta.$BASESELDIR.txt"
+	CURLCMD="$(curl https://www.audible.com/pd/$ASIN -s -o "$AUDMETAFILE")"
+	NARRCMD="$(cat "$AUDMETAFILE" | grep "searchNarrator=" | grep -o -P '(?<=>).*(?=<)')"
+	AUTHORCMD="$(cat "$AUDMETAFILE" | grep "/author/" | grep -o -P '(?<=>).*(?=<)')"
+	TICTLECMD="$(cat "$AUDMETAFILE" | grep "title" | grep -o -P '(?<=>).*(?=<)' | cut -d '-' -f 1 | sed -e 's/[[:space:]]*$//')"
+	SERIESCMD="$(cat "$AUDMETAFILE" | grep "/series?" | grep -o -P '(?<=>).*(?=<)')"
+	BOOKNUM="$(cat "$AUDMETAFILE" | grep "/series?" | grep "/series?" -A 1 | grep -o -P '(?<=>).*(?=)' | cut -d ',' -f 2 | sed -e 's/^[[:space:]]*//')"
+	SUBTITLE="$(cat "$AUDMETAFILE" | grep "subtitle" -A 5 | tail -n1 | sed -e 's/^[[:space:]]*//')"
 
 	# Check what metadata we can actually use for the title/name
 	if [[ -n $SERIESCMD && -n $BOOKNUM && -z "$SUBTITLE" ]]; then
 		m4bvar1="$TICTLECMD ($SERIESCMD, $BOOKNUM)"
 	elif [[ -z $SERIESCMD && -z $BOOKNUM && -n "$SUBTITLE" ]]; then
 		m4bvar1="$TICTLECMD - $SUBTITLE"
-	elif [[ -n $SERIESCMD && -n $BOOKNUM && -n "$SUBTITLE" ]]; then
-		m4bvar1="$TICTLECMD - $SUBTITLE ($SERIESCMD, $BOOKNUM)"
+	elif [[ -n $SERIESCMD && -n $BOOKNUM && -n $SUBTITLE ]]; then
+		# Don't include subtitle text if it is just saying what book in the series it is.
+		if [[ -n "$(echo "$SUBTITLE" | grep "$BOOKNUM")" ]]; then
+			m4bvar1="$TICTLECMD ($SERIESCMD, $BOOKNUM)"
+		else
+			m4bvar1="$TICTLECMD - $SUBTITLE ($SERIESCMD, $BOOKNUM)"
+		fi
 	fi
 
 	m4bvar2="$TICTLECMD"
