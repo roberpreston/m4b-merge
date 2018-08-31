@@ -52,22 +52,21 @@ function preprocess() {
 	# Import metadata into an array, so we can use it.
 	importmetadata
 
-	# Common extensions for audiobooks.
-	# Check input for each of the above file types, ensuring we are not dealing with a pre-merged input.
-	EXT1="$(ls *.m4a 2>/dev/null | wc -l)"
-	EXT2="$(ls *.mp3 2>/dev/null | wc -l)"
-	EXT3="$(ls *.m4b 2>/dev/null | wc -l)"
-
-	if [[ $EXT1 -gt 1 ]]; then
-		EXT="m4a"
-	elif [[ $EXT2 -gt 1 ]]; then
-		EXT="mp3"
-	elif [[ $EXT3 -gt 1 ]]; then
-		EXT="m4b"
-	fi
-
 	if [[ -d $SELDIR ]]; then
-		FINDCMD="$(find "$SELDIR" -type f -iname *."$EXT" | wc -c)"
+		# Common extensions for audiobooks.
+		# Check input for each of the above file types, ensuring we are not dealing with a pre-merged input.
+		EXT1="$(ls *.m4a 2>/dev/null | wc -l)"
+		EXT2="$(ls *.mp3 2>/dev/null | wc -l)"
+		EXT3="$(ls *.m4b 2>/dev/null | wc -l)"
+
+		if [[ $EXT1 -gt 1 ]]; then
+			EXT="m4a"
+		elif [[ $EXT2 -gt 1 ]]; then
+			EXT="mp3"
+		elif [[ $EXT3 -gt 1 ]]; then
+			EXT="m4b"
+		fi
+		#FINDCMD="$(find "$SELDIR" -type f -iname *."$EXT" | wc -c)"
 		if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
 			echo "NOTICE: only found $FINDCMD $EXT files in $BASESELDIR. Cleaning up file/folder names, but not running merge."
 			sfile="false"
@@ -294,7 +293,7 @@ function batchprocess() {
 			((COUNTER++))
 
 			# Make sure output file exists as expected
-			if [[ $sfile == "false" ]] && [[ -d $SELDIR ]] && [[ -s $TOMOVE/$albumartistvar/$albumvar/$namevar.m4b ]]; then
+			if [[ $sfile == "false" ]] || [[ -d $SELDIR ]] || [[ -s $TOMOVE/$albumartistvar/$albumvar/$namevar.m4b ]]; then
 				METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
 				echo "old='Previous folder size: $(du -hcs "$SELDIR" | cut -f 1 | tail -n1)'" > "$METADATA"
 				echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"
