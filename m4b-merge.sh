@@ -1,5 +1,6 @@
 #!/bin/bash
 # Script to use m4b-tool to merge audiobooks, easily.
+VER=1.0
 
 #LOCAL FOLDERS
 TOMOVE="/home/$USER/Downloads/audiobooks/SORTING"
@@ -12,8 +13,9 @@ COMMONCONF="/home/$USER/.config/scripts/common.cfg"
 
 
 # -h help text to print
-usage="	$(basename "$0") $VER [-b] [-f] [-h] [-n] [-y]
+usage="	$(basename "$0") $VER [-a] [-f] [-h] [-n] [-y]
 
+	'-a' Be prompted for Audible ASINs instead of manually entering metadata (BETA)
 	'-f' File or folder to run from. Enter multiple files if you need, as: -f file1 -f file2 -f file3
 	'-h' This help text.
 	'-n' Enable Pushover notifications.
@@ -21,8 +23,10 @@ usage="	$(basename "$0") $VER [-b] [-f] [-h] [-n] [-y]
 	"
 
 # Flags for this script
-	while getopts ":f:hny" option; do
+	while getopts ":af:hny" option; do
  case "${option}" in
+	a) AUDIBLEMETA=true
+		;;
 	f) FILEIN+=("$(realpath "$OPTARG")")
 		;;
 	h) echo "$usage"
@@ -83,6 +87,31 @@ function preprocess() {
 	fi
 }
 
+function audibleparser() {
+	read -e -p 'Enter Audible ASIN: ' ASIN
+
+	CURLCMD="$(curl https://www.audible.com/pd/$ASIN -s)"
+	NARRCMD="$("$CURLCMD" | grep "searchNarrator=" | grep -o -P '(?<=>).*(?=<)')"
+	AUTHORCMD="$("$CURLCMD" | grep "/author/" | grep -o -P '(?<=>).*(?=<)')"
+	TICTLECMD="$("$CURLCMD" | grep "title" | grep -o -P '(?<=>).*(?=<)' | cut -d '-' -f 1)"
+	SERIESCMD="$("$CURLCMD" | grep "/series?" | grep -o -P '(?<=>).*(?=<)')"
+	BOOKNUM="$("$CURLCMD" | grep "/series?" | grep "/series?" -A 1 | grep -o -P '(?<=>).*(?=)' | cut -d ',' -f 2 | sed -e 's/^[[:space:]]*//')"
+	SUBTITLE="$("$CURLCMD" | grep "subtitle" -A 5 | tail -n1 | sed -e 's/^[[:space:]]*//')"
+
+	# Check what metadata we can actually use for the title/name
+	if [[ -n $SERIESCMD && -n $BOOKNUM && -z "$SUBTITLE" ]]; then
+		m4bvar1="$TICTLECMD ($SERIESCMD, $BOOKNUM)"
+	elif [[ -z $SERIESCMD && -z $BOOKNUM && -n "$SUBTITLE" ]]; then
+		m4bvar1="$TICTLECMD - $SUBTITLE"
+	elif [[ -n $SERIESCMD && -n $BOOKNUM && -n "$SUBTITLE" ]]; then
+		m4bvar1="$TICTLECMD - $SUBTITLE ($SERIESCMD, $BOOKNUM)"
+	fi
+
+	m4bvar2="$TICTLECMD"
+	m4bvar3="$NARRCMD"
+	m4bvar4="$AUTHORCMD"
+}
+
 function singlefile() {
 	if [[ $sfile == "true" ]]; then
 		if [[ -f $SELDIR ]]; then
@@ -94,6 +123,25 @@ function singlefile() {
 	echo "Processed single input file for $namevar."
 }
 
+function makearray() {
+	# Put all values into an array
+	M4BARR=(
+	"--name"
+	"${m4bvar1// /_}"
+	"--album"
+	"${m4bvar2// /_}"
+	"--artist"
+	"${m4bvar3// /_}"
+	"--albumartist"
+	"${m4bvar4// /_}"
+	"$bitrate"
+	"$mbid"
+	)
+
+	# Make array into file
+	echo "${M4BARR[*]}" > "$M4BSELFILE"
+}
+
 function collectmeta() {
 	#New shits
 	for SELDIR in "${FILEIN[@]}"; do
@@ -101,57 +149,48 @@ function collectmeta() {
 		BASESELDIR="$(basename "$SELDIR")"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
 
-		if [[ $YPROMPT == "true" ]]; then
-			useoldmeta="y"
-		elif [[ -s $M4BSELFILE ]]; then # Check if we can use an existing metadata entry
-			echo "Metadata for $BASESELDIR exists"
-			read -e -p 'Use existing metadata? y/n: ' useoldmeta
-		elif [[ ! -f $M4BSELFILE ]]; then # Check if we can use an existing metadata entry
-			useoldmeta="n"
-		fi
-
-		if [[ $useoldmeta == "n" ]]; then
-			echo -e "\e[92mEnter metadata for $BASESELDIR\e[0m"
-			# Each line has a line after input, adding that value to an array.
-			read -e -p 'Enter name: ' m4bvar1
-			read -e -p 'Enter Albumname: ' m4bvar2
-			read -e -p 'Enter artist (Narrator): ' m4bvar3
-			read -e -p 'Enter albumartist (Author): ' m4bvar4
-			read -e -p 'Enter bitrate, if any (leave blank for none): ' m4bvar5
-			read -e -p 'Enter Musicbrainz ID, if any (leave blank for none): ' m4bvar6
-
-			# Check if we need to include optional arguments in the array
-			if [[ -z $m4bvar5 ]]; then
-				bitrate=""
-			else
-				bitrate="--musicbrainz-id='$m4bvar5'"
-			fi
-			if [[ -z $m4bvar6 ]]; then
-				mbid=""
-			else
-				mbid="--musicbrainz-id='$m4bvar6'"
+		if [[ $AUDIBLEMETA == "true" ]]; then
+			audibleparser
+			makearray
+		else
+			if [[ $YPROMPT == "true" ]]; then
+				useoldmeta="y"
+			elif [[ -s $M4BSELFILE ]]; then # Check if we can use an existing metadata entry
+				echo "Metadata for $BASESELDIR exists"
+				read -e -p 'Use existing metadata? y/n: ' useoldmeta
+			elif [[ ! -f $M4BSELFILE ]]; then # Check if we can use an existing metadata entry
+				useoldmeta="n"
 			fi
 
-			# Put all values into an array
-			M4BARR=(
-			"--name"
-			"${m4bvar1// /_}"
-			"--album"
-			"${m4bvar2// /_}"
-			"--artist"
-			"${m4bvar3// /_}"
-			"--albumartist"
-			"${m4bvar4// /_}"
-			"$bitrate"
-			"$mbid"
-			)
+			if [[ $useoldmeta == "n" ]]; then
+				echo -e "\e[92mEnter metadata for $BASESELDIR\e[0m"
+				# Each line has a line after input, adding that value to an array.
+				read -e -p 'Enter name: ' m4bvar1
+				read -e -p 'Enter Albumname: ' m4bvar2
+				read -e -p 'Enter artist (Narrator): ' m4bvar3
+				read -e -p 'Enter albumartist (Author): ' m4bvar4
+				read -e -p 'Enter bitrate, if any (leave blank for none): ' m4bvar5
+				read -e -p 'Enter Musicbrainz ID, if any (leave blank for none): ' m4bvar6
 
-			# Make array into file
-			echo "${M4BARR[*]}" > "$M4BSELFILE"
-		elif [[ -s $M4BSELFILE && $useoldmeta == "y" ]]; then
-			echo "Using this metadata then:"
-			echo "$(cat "$M4BSELFILE" | tr '_' ' ')"
-			echo ""
+				# Check if we need to include optional arguments in the array
+				if [[ -z $m4bvar5 ]]; then
+					bitrate=""
+				else
+					bitrate="--musicbrainz-id='$m4bvar5'"
+				fi
+				if [[ -z $m4bvar6 ]]; then
+					mbid=""
+				else
+					mbid="--musicbrainz-id='$m4bvar6'"
+				fi
+
+				# Call array function
+				makearray
+			elif [[ -s $M4BSELFILE && $useoldmeta == "y" ]]; then
+				echo "Using this metadata then:"
+				echo "$(cat "$M4BSELFILE" | tr '_' ' ')"
+				echo ""
+			fi
 		fi
 	done
 }
