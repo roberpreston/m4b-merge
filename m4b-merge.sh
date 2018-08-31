@@ -62,11 +62,13 @@ function preprocess() {
 		EXT="m4b"
 	fi
 
-	FINDCMD="$(find "$SELDIR" -type f -iname *."$EXT" | wc -c)"
-	if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
-		echo "NOTICE: only found $FINDCMD $EXT files in $BASESELDIR. Cleaning up file/folder names, but not running merge."
-		sfile="true"
-		singlefile
+	if [[ -d $SELDIR ]]; then
+		FINDCMD="$(find "$SELDIR" -type f -iname *."$EXT" | wc -c)"
+		if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
+			echo "NOTICE: only found $FINDCMD $EXT files in $BASESELDIR. Cleaning up file/folder names, but not running merge."
+			sfile="true"
+			singlefile
+		fi
 	elif [[ -f $SELDIR ]]; then
 		sfile="true"
 		singlefile
