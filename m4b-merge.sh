@@ -90,6 +90,11 @@ function preprocess() {
 function audibleparser() {
 	read -e -p 'Enter Audible ASIN: ' ASIN
 
+	if [[ -z $ASIN ]]; then
+		echo "ERROR: No ASIN was entered. Exiting."
+		exit 1
+	fi
+
 	AUDMETAFILE="/tmp/.audmeta.$BASESELDIR.txt"
 	CURLCMD="$(curl https://www.audible.com/pd/$ASIN -s -o "$AUDMETAFILE")"
 	NARRCMD="$(cat "$AUDMETAFILE" | grep "searchNarrator=" | grep -o -P '(?<=>).*(?=<)')"
