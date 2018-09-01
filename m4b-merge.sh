@@ -97,17 +97,25 @@ function audibleparser() {
 	fi
 
 	if [[ $useoldmeta == "n" ]]; then
-		echo ""
-		echo "Enter Audible ASIN for $BASESELDIR"
-		read -e -p 'ASIN: ' ASIN
+		RET=1
+		until [[ $RET -eq 0 ]]; do
+			echo ""
+			echo "Enter Audible ASIN for $BASESELDIR"
+			read -e -p 'ASIN: ' ASIN
 
-		if [[ -z $ASIN ]]; then
-			echo "ERROR: No ASIN was entered. Exiting."
-			exit 1
-		elif [[ $(curl -o /dev/null -L --silent --head --write-out '%{http_code}\n' https://www.audible.com/pd/$ASIN) != "200" ]]; then
-			echo "ERROR: Could not access ASIN for $BASESELDIR (Was it entered correctly?)"
-			exit 1
-		fi
+			CHECKASIN="$(curl -o /dev/null -L --silent --head --write-out '%{http_code}\n' https://www.audible.com/pd/$ASIN)"
+			RET=$?
+
+			if [[ -z $ASIN ]]; then
+				echo "ERROR: No ASIN was entered. Try again."
+				RET=1
+			elif [[ $CHECKASIN != "200" ]]; then
+				echo "ERROR: Could not access ASIN for $BASESELDIR (Was it entered correctly?)"
+				RET=1
+			elif [[ $CHECKASIN == "200" ]]; then
+				RET=0
+			fi
+		done
 	fi
 	if [[ ! -s $AUDMETAFILE ]] || [[ -s $AUDMETAFILE && $useoldmeta == "n" ]]; then
 		echo "Fetching metadata from Audible..."
@@ -117,12 +125,12 @@ function audibleparser() {
 	unset useoldmeta
 
 	# Check for multiple narrators
-	NARRCMD="$( grep "searchNarrator=" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | recode html..ascii)"
+	NARRCMD="$(grep "searchNarrator=" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | recode html..ascii)"
 	if [[ $(echo "$NARRCMD" | wc -l) -gt 1 ]]; then
 		echo "NOTICE: Correcting formatting for multiple narrators..."
 		NUM="$(echo "$NARRCMD" | wc -l)"
-		ADJNUM=$(seq -s, 2 "$NUM")
-		NARRCMD="$(cat "$AUDMETAFILE" | grep "searchNarrator=" | grep -o -P '(?<=>).*(?=<)' | sed -e "${ADJNUM}s#^#, #" | tr -d '\n' | recode html..ascii)"
+		#ADJNUM=$(seq -s, 2 "$NUM")
+		NARRCMD="$(cat "$AUDMETAFILE" | grep "searchNarrator=" | grep -o -P '(?<=>).*(?=<)' | sed -e "2,${NUM}{s#^#, #}" | tr -d '\n' | recode html..ascii)"
 	fi
 	AUTHORCMD="$(grep "/author/" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | head -n1 | recode html..ascii)"
 	# Prefer being strict about authors, unless we can't find them.
