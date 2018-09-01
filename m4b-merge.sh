@@ -55,9 +55,9 @@ function preprocess() {
 	if [[ -d $SELDIR ]]; then
 		# Common extensions for audiobooks.
 		# Check input for each of the above file types, ensuring we are not dealing with a pre-merged input.
-		EXT1="$(ls *.m4a 2>/dev/null | wc -l)"
-		EXT2="$(ls *.mp3 2>/dev/null | wc -l)"
-		EXT3="$(ls *.m4b 2>/dev/null | wc -l)"
+		EXT1="$(ls "$SELDIR"/*.m4a 2>/dev/null | wc -l)"
+		EXT2="$(ls "$SELDIR"/*.mp3 2>/dev/null | wc -l)"
+		EXT3="$(ls "$SELDIR"/*.m4b 2>/dev/null | wc -l)"
 
 		if [[ $EXT1 -gt 1 ]]; then
 			EXT="m4a"
@@ -66,21 +66,20 @@ function preprocess() {
 		elif [[ $EXT3 -gt 1 ]]; then
 			EXT="m4b"
 		fi
-		#FINDCMD="$(find "$SELDIR" -type f -iname *."$EXT" | wc -c)"
+		FINDCMD="$(ls "$SELDIR"/*.$EXT 2>/dev/null | wc -l)"
 		if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
 			echo "NOTICE: only found $FINDCMD $EXT files in $BASESELDIR. Cleaning up file/folder names, but not running merge."
-			sfile="false"
+			sfile="true"
 			singlefile
+		else
+			sfile="false"
+			# After we verify the input needs to be merged, lets run the merge command.
+			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
+			echo "Merge completed for $namevar."
 		fi
 	elif [[ -f $SELDIR ]]; then
 		sfile="true"
 		singlefile
-	fi
-
-	if [[ $sfile == "false" ]] && [[ -d $SELDIR ]]; then
-		# After we verify the input needs to be merged, lets run the merge command.
-		php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
-		echo "Merge completed for $namevar."
 	fi
 }
 
@@ -189,9 +188,7 @@ function singlefile() {
 			EXT="${SELDIR: -4}"
 			mp3metaeditor
 			mv "$(dirname "$SELDIR")"/"$BASESELDIR" "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar""$EXT" --verbose
-		fi
-	elif [[ $sfile == "false" ]]; then
-		if [[ -d $SELDIR ]]; then
+		elif [[ -d $SELDIR ]]; then
 			mv "$(dirname "$SELDIR")"/"$BASESELDIR"/*.$EXT "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" --verbose
 		fi
 	fi
@@ -302,6 +299,7 @@ function batchprocess() {
 			echo  "($COUNTER of $INPUTNUM): Processing $albumvar..."
 			# Process input, and determine if we need to run merge, or just cleanup the metadata a bit.
 			preprocess
+			unset sfile
 			((COUNTER++))
 
 			# Make sure output file exists as expected
