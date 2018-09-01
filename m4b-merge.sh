@@ -153,14 +153,14 @@ function audibleparser() {
 	m4bvar1="$TICTLECMD" # Default
 	if [[ -n $SERIESCMD && -n $BOOKNUM && -z "$SUBTITLE" ]]; then
 		m4bvar1="$TICTLECMD ($SERIESCMD, $BOOKNUM)"
-	elif [[ -z $SERIESCMD && -z $BOOKNUM && -z "$SUBTITLE" ]]; then
-		m4bvar1="$TICTLECMD"
 	elif [[ -z $SERIESCMD && -z $BOOKNUM && -n "$SUBTITLE" ]]; then
 		m4bvar1="$TICTLECMD - $SUBTITLE"
 	elif [[ -n $SERIESCMD && -n $BOOKNUM && -n $SUBTITLE ]]; then
 		# Don't include subtitle text if it is just saying what book in the series it is.
-		if [[ -z "$(echo "$SUBTITLE" | grep -o "$BOOKNUM")" ]] && [[ ! $SUBTITLE == "$SERIESCMD, $BOOKNUM" ]]; then
+		if [[ "$(echo "$SUBTITLE" | grep "$BOOKNUM" | wc -l)" -eq 0 ]]; then
 			m4bvar1="$TICTLECMD - $SUBTITLE ($SERIESCMD, $BOOKNUM)"
+		else
+			m4bvar1="$TICTLECMD ($SERIESCMD, $BOOKNUM)"
 		fi
 	fi
 
