@@ -295,6 +295,7 @@ function batchprocess() {
 		# Import metadata into an array, so we can use it.
 		importmetadata
 
+		# Make sure output file exists as expected
 		if [[ -s $M4BSELFILE ]]; then
 			#echo "Starting conversion of "$namevar""
 			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
@@ -304,19 +305,16 @@ function batchprocess() {
 			unset sfile
 			((COUNTER++))
 
-			# Make sure output file exists as expected
-			if [[ $sfile == "false" ]] || [[ -d $SELDIR ]]; then
-				METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
-				echo "old='Previous folder size: $(du -hcs "$SELDIR" | cut -f 1 | tail -n1)'" > "$METADATA"
-				echo "new='New folder size: $(du -hcs "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1 | tail -n1)'" >> "$METADATA"
-				echo "del='ready'" >> "$METADATA"
-				unset namevar albumvar artistvar albumartistvar old new del
+			METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
+			echo "old='Old size: $(du -hk "$SELDIR" | cut -f 1)'" > "$METADATA"
+			echo "new='New size: $(du -hk "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1)'" >> "$METADATA"
+			echo "processed='true'" >> "$METADATA"
+			unset namevar albumvar artistvar albumartistvar
+			if [[ $sfile == "false" && -d $SELDIR ]]; then
 				rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
-			else
-				exit 1
 			fi
 		else
-			echo "Error: metadata file for $SELDIR does not exist"
+			echo "ERROR: metadata file for $BASESELDIR does not exist"
 			exit 1
 		fi
 	done
@@ -325,27 +323,36 @@ function batchprocess() {
 function batchprocess2() {
 	echo "Let's go over the folders that have been processed:"
 	for SELDIR in "${FILEIN[@]}"; do
+		BASESELDIR="$(basename "$SELDIR")"
 		METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
+		AUDMETAFILE="/tmp/.audmeta.$BASESELDIR.txt"
 
 		# Make sure metadata file exists before trying to process it.
 		if [[ -s $METADATA ]]; then
 			source $METADATA
 		else
-			echo "Error: metadata file not found. exiting..."
-			exit 1
+			echo "ERROR: metadata file for $BASESELDIR not found. Skipping..."
 		fi
 
 		# Check that this metadata is ready to process, and then display info to user.
-		if [ "$del" = ready ]; then
-			echo "Checking $SELDIR ..."
+		if [[ "$processed" == "true" ]]; then
+			echo "Checking $BASESELDIR ..."
 			echo "Previous folder size: $old"
 			echo "New folder size: $new"
 			read -e -p 'Should this source be deleted? y/n: ' delvar
 			if [[ $delvar == "y" ]]; then
 				echo "rm -rf "$SELDIR"" >> "$DELTRUE"
-				rm "$METADATA"
-				rm "$M4BSELFILE"
+				echo "Pruning old metadata files..."
+				if [[ -s $METADATA ]]; then
+					rm "$METADATA"
+				fi
+				if [[ -s $M4BSELFILE ]]; then
+					rm "$M4BSELFILE"
+				fi
+				if [[ -s $AUDMETAFILE ]]; then
+					rm "$AUDMETAFILE"
+				fi
 			fi
 		fi
 	done
@@ -353,16 +360,16 @@ function batchprocess2() {
 	echo "Ok, now deleting the folders you confirmed..."
 
 	# Process removal commands on source folders.
-	for line in "$DELTRUE"; do
+	for line in $DELTRUE; do
 		echo "Executing $line"
-		$line
+		"$line"
 	done
 }
 
 function pushovr() {
 	# Check if user wanted notifications
 	if [ "$PUSHOVER" = "true" ]; then
-		echo "Sending Pushover notification..."
+		log "Sending Pushover notification..."
 		MESSAGE="m4b-merge script has finished processing all specified audiobooks. Waiting on user to tell me what to delete."
 		TITLE="m4b-merge finished"
 		source "$COMMONCONF"
@@ -372,7 +379,6 @@ function pushovr() {
 	    -F "title=$TITLE" \
 	    -F "message=$MESSAGE" \
 	    https://api.pushover.net/1/messages.json
-		echo "Script finished."
 	fi
 }
 
@@ -397,8 +403,8 @@ if [[ ! -f "$(dirname "$M4BPATH")"/.pv.lock ]]; then
 fi
 
 # Make sure user gave usable INPUT
-if [[ -z $FILEIN ]]; then
-	echo "Error: No file inputs given."
+if [[ -z ${FILEIN[@]} ]]; then
+	echo "ERROR: No file inputs given."
 	echo "$usage"
 	exit 1
 fi
@@ -410,7 +416,7 @@ batchprocess
 # Send notification
 pushovr
 
-echo "Starting rclone background move"
+log "Starting rclone background move"
 tmux new-session -d -s "rclonem4b" rclone move "$TOMOVE" "$OUTPUT" --transfers=1 --verbose --stats 15s
 
 #batchprocess2
