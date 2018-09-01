@@ -13,12 +13,13 @@ COMMONCONF="/home/$USER/.config/scripts/common.cfg"
 
 
 # -h help text to print
-usage="	$(basename "$0") $VER [-a] [-f] [-h] [-n] [-y]
+usage="	$(basename "$0") $VER [-a] [-f] [-h] [-n] [-v] [-y]
 
 	'-a' Be prompted for Audible ASINs instead of manually entering metadata (BETA)
 	'-f' File or folder to run from. Enter multiple files if you need, as: -f file1 -f file2 -f file3
 	'-h' This help text.
 	'-n' Enable Pushover notifications.
+	'-v' Verbose mode.
 	'-y' Answer 'yes' to all prompts.
 	"
 
@@ -33,6 +34,8 @@ usage="	$(basename "$0") $VER [-a] [-f] [-h] [-n] [-y]
  		exit
 		;;
 	n) PUSHOVER=true
+		;;
+	v) VRBOSE=1
 		;;
 	y) YPROMPT=true
 		;;
@@ -68,7 +71,7 @@ function preprocess() {
 		fi
 		FINDCMD="$(ls "$SELDIR"/*.$EXT 2>/dev/null | wc -l)"
 		if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
-			echo "NOTICE: only found $FINDCMD $EXT files in $BASESELDIR. Cleaning up file/folder names, but not running merge."
+			log "NOTICE: only found $FINDCMD $EXT files in $BASESELDIR. Cleaning up file/folder names, but not running merge."
 			sfile="true"
 			singlefile
 		else
@@ -126,15 +129,14 @@ function audibleparser() {
 	# Check for multiple narrators
 	NARRCMD="$(grep "searchNarrator=" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | recode html..ascii)"
 	if [[ $(echo "$NARRCMD" | wc -l) -gt 1 ]]; then
-		echo "NOTICE: Correcting formatting for multiple narrators..."
+		log "NOTICE: Correcting formatting for multiple narrators..."
 		NUM="$(echo "$NARRCMD" | wc -l)"
-		#ADJNUM=$(seq -s, 2 "$NUM")
 		NARRCMD="$(cat "$AUDMETAFILE" | grep "searchNarrator=" | grep -o -P '(?<=>).*(?=<)' | sed -e "2,${NUM}{s#^#, #}" | tr -d '\n' | recode html..ascii)"
 	fi
 	AUTHORCMD="$(grep "/author/" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | head -n1 | recode html..ascii)"
 	# Prefer being strict about authors, unless we can't find them.
 	if [[ -z $AUTHORCMD ]]; then
-		echo "NOTICE: Could not find author using default method. Trying backup method..."
+		log "NOTICE: Could not find author using default method. Trying backup method..."
 		AUTHORCMD="$(cat "$AUDMETAFILE" | grep "author" | grep -o -P '(?<=>).*(?=<)' | head -n1 | recode html..ascii)"
 	fi
 	TICTLECMD="$(grep "title" "$AUDMETAFILE" | head -n1 | grep -o -P '(?<=>).*(?=<)' | cut -d '-' -f 1 | sed -e 's/[[:space:]]*$//' | recode html..ascii)"
@@ -372,6 +374,12 @@ function pushovr() {
 	    https://api.pushover.net/1/messages.json
 		echo "Script finished."
 	fi
+}
+
+function log () {
+    if [[ $VRBOSE -eq 1 ]]; then
+        echo "$@"
+    fi
 }
 
 ### End functions ###
