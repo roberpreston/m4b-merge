@@ -185,13 +185,16 @@ function mp3metaeditor() {
 }
 
 function singlefile() {
+	if [[ $VRBOSE == "1" ]]; then
+		OPT="--verbose"
+	fi
 	if [[ $sfile == "true" ]]; then
 		if [[ -f $SELDIR ]]; then
 			EXT="${SELDIR: -4}"
 			mp3metaeditor
-			mv "$(dirname "$SELDIR")"/"$BASESELDIR" "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar""$EXT" --verbose
+			mv "$(dirname "$SELDIR")"/"$BASESELDIR" "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar""$EXT" $OPT
 		elif [[ -d $SELDIR ]]; then
-			mv "$(dirname "$SELDIR")"/"$BASESELDIR"/*.$EXT "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" --verbose
+			mv "$(dirname "$SELDIR")"/"$BASESELDIR"/*.$EXT "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" $OPT
 		fi
 	fi
 	echo "Processed single input file for $namevar."
@@ -291,6 +294,7 @@ function batchprocess() {
 		# Basename of array values
 		BASESELDIR="$(basename "$SELDIR")"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
+		METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
 
 		# Import metadata into an array, so we can use it.
 		importmetadata
@@ -300,13 +304,13 @@ function batchprocess() {
 			#echo "Starting conversion of "$namevar""
 			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
 			echo  "($COUNTER of $INPUTNUM): Processing $albumvar..."
+
+			echo "old='Old size: $(du -hk "$SELDIR" | cut -f 1)'" > "$METADATA"
 			# Process input, and determine if we need to run merge, or just cleanup the metadata a bit.
 			preprocess
 			unset sfile
 			((COUNTER++))
 
-			METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
-			echo "old='Old size: $(du -hk "$SELDIR" | cut -f 1)'" > "$METADATA"
 			echo "new='New size: $(du -hk "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1)'" >> "$METADATA"
 			echo "processed='true'" >> "$METADATA"
 			unset namevar albumvar artistvar albumartistvar
@@ -417,7 +421,7 @@ batchprocess
 pushovr
 
 log "Starting rclone background move"
-tmux new-session -d -s "rclonem4b" rclone move "$TOMOVE" "$OUTPUT" --transfers=1 --verbose --stats 15s
+tmux new-session -d -s "rclonem4b" rclone move "$TOMOVE" "$OUTPUT" --transfers=1 --verbose --stats 15s; find "$TOMOVE" -type d -empty -delete
 
 #batchprocess2
 
