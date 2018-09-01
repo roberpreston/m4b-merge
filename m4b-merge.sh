@@ -141,6 +141,10 @@ function audibleparser() {
 	TICTLECMD="$(grep "title" "$AUDMETAFILE" | head -n1 | grep -o -P '(?<=>).*(?=<)' | cut -d '-' -f 1 | sed -e 's/[[:space:]]*$//' | recode html..ascii)"
 	SERIESCMD="$(grep "/series?" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | recode html..ascii)"
 	BOOKNUM="$(grep "/series?" -A 1 "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=)' | cut -d ',' -f 2 | sed -e 's/^[[:space:]]*//' | recode html..ascii)"
+	# Don't include book number, if it doesn't actually say which book it is
+	if [[ $(echo "$BOOKNUM" | grep "Book" | wc -l ) -lt 1 ]]; then
+		BOOKNUM=""
+	fi
 	#SUBTITLE="$(grep "subtitle" -A 5 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | recode html..ascii)"
 	BKDATE1="$(grep "releaseDateLabel" -A 3 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | tr '-' '/' | recode html..ascii)"
 	BKDATE="$(date -d "$BKDATE1" +%Y-%m-%d)"
