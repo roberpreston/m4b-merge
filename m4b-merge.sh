@@ -145,7 +145,7 @@ function audibleparser() {
 	if [[ $(echo "$BOOKNUM" | grep "Book" | wc -l ) -lt 1 ]]; then
 		BOOKNUM=""
 	fi
-	#SUBTITLE="$(grep "subtitle" -A 5 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | recode html..ascii)"
+	SUBTITLE="$(grep "subtitle" -A 5 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | recode html..ascii)"
 	BKDATE1="$(grep "releaseDateLabel" -A 3 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | tr '-' '/' | recode html..ascii)"
 	BKDATE="$(date -d "$BKDATE1" +%Y-%m-%d)"
 
@@ -160,7 +160,7 @@ function audibleparser() {
 	elif [[ -n $SERIESCMD && -n $BOOKNUM && -n $SUBTITLE ]]; then
 		# Don't include subtitle text if it is just saying what book in the series it is.
 		if [[ -z "$(echo "$SUBTITLE" | grep -o "$BOOKNUM")" ]] && [[ ! $SUBTITLE == "$SERIESCMD, $BOOKNUM" ]]; then
-			m4bvar1="$TICTLECMD - $SUBTITLE ($SERIESCMD, $BOOKNUM)"
+			m4bvar1="$TICTLECMD - $(echo "$SUBTITLE" | tr -dc '[:print:]') ($SERIESCMD, $BOOKNUM)"
 		fi
 	fi
 
