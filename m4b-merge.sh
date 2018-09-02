@@ -24,7 +24,7 @@ usage="	$(basename "$0") $VER [-a] [-f] [-h] [-n] [-v] [-y]
 	"
 
 # Flags for this script
-	while getopts ":af:hny" option; do
+	while getopts ":af:hnvy" option; do
  case "${option}" in
 	a) AUDIBLEMETA=true
 		;;
@@ -161,6 +161,10 @@ function audibleparser() {
 		m4bvar1="$TICTLECMD ($SERIESCMD, $BOOKNUM)"
 	elif [[ -z $SERIESCMD && -z $BOOKNUM && -n "$SUBTITLE" ]]; then
 		m4bvar1="$TICTLECMD - $SUBTITLE"
+	elif [[ -n $SERIESCMD && -z $BOOKNUM && -z "$SUBTITLE" ]]; then
+		m4bvar1="$TICTLECMD ($SERIESCMD)"
+	elif [[ -n $SERIESCMD && -z $BOOKNUM && -n "$SUBTITLE" ]]; then
+		m4bvar1="$TICTLECMD - $SUBTITLE ($SERIESCMD)"
 	elif [[ -n $SERIESCMD && -n $BOOKNUM && -n $SUBTITLE ]]; then
 		# Don't include subtitle text if it is just saying what book in the series it is.
 		if [[ "$(echo "$SUBTITLE" | grep "$BOOKNUM" | wc -l)" -eq 0 ]]; then
