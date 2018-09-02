@@ -139,11 +139,15 @@ function audibleparser() {
 		log "NOTICE: Could not find author using default method. Trying backup method..."
 		AUTHORCMD="$(cat "$AUDMETAFILE" | grep "author" | grep -o -P '(?<=>).*(?=<)' | head -n1 | recode html..ascii)"
 	fi
-	TICTLECMD="$(grep "title" "$AUDMETAFILE" | head -n1 | grep -o -P '(?<=>).*(?=<)' | cut -d '-' -f 1 | sed -e 's/[[:space:]]*$//' | recode html..ascii)"
+	TICTLECMD="$(grep "title" -m 1 "$AUDMETAFILE" | head -n1 | grep -o -P '(?<=>).*(?=<)' | cut -d '-' -f 1 | sed -e 's/[[:space:]]*$//' | recode html..ascii)"
 	SERIESCMD="$(grep "/series?" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | recode html..ascii)"
 	if [[ $(echo "$SERIESCMD" | grep "chronological" | wc -l) -ge 1 ]]; then
 		log "NOTICE: Detected 2 book orders. Using Chronological order."
-		SERIESCMD="$(grep "chronological" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=,)' | sed -e 's#</a>##' | recode html..ascii)"
+		SERIESCMD="$(grep "chronological" -m 1 "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=,)' | sed -e 's#</a>##' | recode html..ascii)"
+		if [[ $(echo "$SERIESCMD" | grep "Book" | wc -l) -lt 1 ]]; then
+			log "NOTICE: Detected possible issue with Book number missing. Being less strict to retrieve it."
+			SERIESCMD="$(grep "chronological" -m 1 "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=)' | sed -e 's#</a>##' | recode html..ascii)"
+		fi
 	fi
 	BOOKNUM="$(grep "/series?" -A 1 "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=)' | cut -d ',' -f 2 | sed -e 's/^[[:space:]]*//' | recode html..ascii)"
 	# Don't include book number, if it doesn't actually say which book it is
@@ -151,7 +155,7 @@ function audibleparser() {
 		log "NOTICE: Detected either no book number, or more than 1 book number."
 		BOOKNUM=""
 	fi
-	SUBTITLE="$(grep "subtitle" -A 5 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | recode html..ascii | tr -dc '[:print:]')"
+	SUBTITLE="$(grep "subtitle" -m 1 -A 5 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | recode html..ascii | tr -dc '[:print:]')"
 	BKDATE1="$(grep "releaseDateLabel" -A 3 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | tr '-' '/' | recode html..ascii)"
 	BKDATE="$(date -d "$BKDATE1" +%Y-%m-%d)"
 
