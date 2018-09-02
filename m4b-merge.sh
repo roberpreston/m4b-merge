@@ -186,11 +186,9 @@ function audibleparser() {
 	unset m4bvar1 m4bvar2 m4bvar3 m4bvar4
 }
 
-function mp3metaeditor() {
-	if [[ $EXT == "mp3" ]]; then
-		echo "Editing mp3 tags..."
-		mid3v2 "$(dirname "$SELDIR")"/"$BASESELDIR" --song="$m4bvar1" --album="$m4bvar2" --artist="$m4bvar3" --TXXX="ALBUMARTIST:$m4bvar4" --date="$BKDATE"
-	fi
+function tageditor() {
+	log "Editing file metadata tags..."
+	mid3v2 "$(dirname "$SELDIR")"/"$BASESELDIR" --song="$m4bvar1" --album="$m4bvar2" --artist="$m4bvar3" --TXXX="ALBUMARTIST:$m4bvar4" --date="$BKDATE"
 }
 
 function singlefile() {
@@ -200,7 +198,7 @@ function singlefile() {
 	if [[ $sfile == "true" ]]; then
 		if [[ -f $SELDIR ]]; then
 			EXT="${SELDIR: -4}"
-			mp3metaeditor
+			tageditor
 			mv "$(dirname "$SELDIR")"/"$BASESELDIR" "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar""$EXT" $OPT
 		elif [[ -d $SELDIR ]]; then
 			mv "$(dirname "$SELDIR")"/"$BASESELDIR"/*.$EXT "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" $OPT
