@@ -141,9 +141,14 @@ function audibleparser() {
 	fi
 	TICTLECMD="$(grep "title" "$AUDMETAFILE" | head -n1 | grep -o -P '(?<=>).*(?=<)' | cut -d '-' -f 1 | sed -e 's/[[:space:]]*$//' | recode html..ascii)"
 	SERIESCMD="$(grep "/series?" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | recode html..ascii)"
+	if [[ $(echo "$SERIESCMD" | grep "chronological" | wc -l) -ge 1 ]]; then
+		log "NOTICE: Detected 2 book orders. Using Chronological order."
+		SERIESCMD="$(grep "chronological" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=,)' | sed -e 's#</a>##' | recode html..ascii)"
+	fi
 	BOOKNUM="$(grep "/series?" -A 1 "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=)' | cut -d ',' -f 2 | sed -e 's/^[[:space:]]*//' | recode html..ascii)"
 	# Don't include book number, if it doesn't actually say which book it is
-	if [[ $(echo "$BOOKNUM" | grep "Book" | wc -l ) -lt 1 ]]; then
+	if [[ $(echo "$BOOKNUM" | grep "Book" | wc -l ) -lt 1 ]] || [[ $(echo "$BOOKNUM" | grep "Book" | wc -l ) -gt 1 ]]; then
+		log "NOTICE: Detected either no book number, or more than 1 book number."
 		BOOKNUM=""
 	fi
 	SUBTITLE="$(grep "subtitle" -A 5 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | recode html..ascii | tr -dc '[:print:]')"
