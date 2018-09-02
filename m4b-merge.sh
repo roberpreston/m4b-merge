@@ -54,33 +54,25 @@ function preprocess() {
 	# Let's first check that the input folder, actually should be merged.
 	# Import metadata into an array, so we can use it.
 	importmetadata
+	# Common extensions for audiobooks.
+	# Check input for each of the above file types, ensuring we are not dealing with a pre-merged input.
+	EXT1="$(grep -i -r --include \*.m4a '*' "$SELDIR" | wc -l)"
+	EXT2="$(grep -i -r --include \*.mp3 '*' "$SELDIR" | wc -l)"
+	EXT3="$(grep -i -r --include \*.m4b '*' "$SELDIR" | wc -l)"
 
-	if [[ -d $SELDIR ]]; then
-		# Common extensions for audiobooks.
-		# Check input for each of the above file types, ensuring we are not dealing with a pre-merged input.
-		EXT1="$(ls "$SELDIR"/*.m4a 2>/dev/null | wc -l)"
-		EXT2="$(ls "$SELDIR"/*.mp3 2>/dev/null | wc -l)"
-		EXT3="$(ls "$SELDIR"/*.m4b 2>/dev/null | wc -l)"
+	if [[ $EXT1 -ge 1 ]]; then
+		EXT="m4a"
+	elif [[ $EXT2 -ge 1 ]]; then
+		EXT="mp3"
+	elif [[ $EXT3 -ge 1 ]]; then
+		EXT="m4b"
+	fi
 
-		if [[ $EXT1 -gt 1 ]]; then
-			EXT="m4a"
-		elif [[ $EXT2 -gt 1 ]]; then
-			EXT="mp3"
-		elif [[ $EXT3 -gt 1 ]]; then
-			EXT="m4b"
-		fi
-		FINDCMD="$(ls "$SELDIR"/*.$EXT 2>/dev/null | wc -l)"
-		if [[ $FINDCMD -gt 0 && $FINDCMD -le 2 ]]; then
-			log "NOTICE: only found $FINDCMD $EXT files in $BASESELDIR. Cleaning up file/folder names, but not running merge."
-			sfile="true"
-			singlefile
-		else
-			sfile="false"
-			# After we verify the input needs to be merged, lets run the merge command.
-			php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
-			echo "Merge completed for $namevar."
-		fi
-	elif [[ -f $SELDIR ]]; then
+	if [[ -d $SELDIR ]] || [[ -f $SELDIR && $EXT == "m4b" ]]; then
+		# After we verify the input needs to be merged, lets run the merge command.
+		php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
+		echo "Merge completed for $namevar."
+	elif [[ -f $SELDIR && $EXT == "mp3" ]]; then
 		sfile="true"
 		singlefile
 	fi
@@ -195,8 +187,11 @@ function audibleparser() {
 }
 
 function tageditor() {
+	if [[ $VRBOSE == "1" ]]; then
+		OPT="--verbose"
+	fi
 	log "Editing file metadata tags..."
-	mid3v2 "$(dirname "$SELDIR")"/"$BASESELDIR" --song="$m4bvar1" --album="$m4bvar2" --artist="$m4bvar3" --TXXX="ALBUMARTIST:$m4bvar4" --date="$BKDATE"
+	mid3v2 --track="1/1" --song="$namevar" --album="$albumvar" --TPE2="$albumartistvar" --artist="$artistvar" --date="$BKDATE" $OPT "$(dirname "$SELDIR")"/"$BASESELDIR"
 }
 
 function singlefile() {
@@ -295,6 +290,7 @@ function importmetadata() {
 	readarray M4BSEL <<<"$(cat "$M4BSELFILE" | tr ' ' '\n' | tr '_' ' ')"
 	namevar="$(echo "${M4BSEL[1]}" | sed s/\'//g)"
 	albumvar="$(echo "${M4BSEL[3]}" | sed s/\'//g)"
+	artistvar="$(echo "${M4BSEL[5]}" | sed s/\'//g)"
 	albumartistvar="$(echo "${M4BSEL[7]}" | sed s/\'//g)"
 }
 
