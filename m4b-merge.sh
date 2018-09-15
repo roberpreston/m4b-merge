@@ -131,7 +131,7 @@ function audibleparser() {
 		log "NOTICE: Could not find author using default method. Trying backup method..."
 		AUTHORCMD="$(cat "$AUDMETAFILE" | grep "author" | grep -o -P '(?<=>).*(?=<)' | head -n1 | recode html..ascii)"
 	fi
-	TICTLECMD="$(grep "title"  "$AUDMETAFILE" | grep "content=" | grep -o -P '(?<=content=").*(?=")' | sed -e 's/[[:space:]]*$//' | recode html..ascii)"
+	TICTLECMD="$(grep "title"  "$AUDMETAFILE" | grep "content=" -m 1 | head -n1 | grep -o -P '(?<=content=").*(?=")' | sed -e 's/[[:space:]]*$//' | recode html..ascii)"
 	SERIESCMD="$(grep "/series?" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | recode html..ascii)"
 	if [[ $(echo "$SERIESCMD" | grep "chronological" | wc -l) -ge 1 ]]; then
 		log "NOTICE: Detected 2 book orders. Using Chronological order."
