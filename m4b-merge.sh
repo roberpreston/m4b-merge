@@ -66,15 +66,20 @@ function preprocess() {
 		EXT="mp3"
 	elif [[ $EXT3 -ge 1 ]]; then
 		EXT="m4b"
+	elif [[ -z $EXT1 && -z $EXT2 && -z $EXT3 ]]; then
+		EXT=""
 	fi
 
-	if [[ -d $SELDIR ]] || [[ -f $SELDIR && $EXT == "m4b" ]]; then
+	if [[ -d $SELDIR && -n $EXT ]] || [[ -f $SELDIR && $EXT == "m4b" ]]; then
 		# After we verify the input needs to be merged, lets run the merge command.
 		php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
 		echo "Merge completed for $namevar."
 	elif [[ -f $SELDIR && $EXT == "mp3" ]]; then
 		sfile="true"
 		singlefile
+	elif [[ -z $EXT ]]; then
+		echo "ERROR: No recognized filetypes found for $namevar."
+		echo "WARNING: Skipping..."
 	fi
 }
 
@@ -198,7 +203,7 @@ function singlefile() {
 	if [[ $VRBOSE == "1" ]]; then
 		OPT="--verbose"
 	fi
-	if [[ $sfile == "true" ]]; then
+	if [[ $sfile == "true" && -n $EXT ]]; then
 		if [[ -f $SELDIR ]]; then
 			EXT="${SELDIR: -4}"
 			tageditor
@@ -409,6 +414,8 @@ function log () {
 }
 
 ### End functions ###
+
+log "NOTICE: Verbose mode is ON"
 
 # Small one time check for 'pv'
 if [[ ! -f "$(dirname "$M4BPATH")"/.pv.lock ]]; then
