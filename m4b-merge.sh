@@ -385,15 +385,20 @@ function pushovr() {
 	# Check if user wanted notifications
 	if [ "$PUSHOVER" = "true" ]; then
 		log "Sending Pushover notification..."
+		if [[ $VRBOSE == "1" ]]; then
+			OPT="--verbose"
+		else
+			OPT="--silent > /dev/null"
+		fi
 		MESSAGE="m4b-merge script has finished processing all specified audiobooks. Waiting on user to tell me what to delete."
 		TITLE="m4b-merge finished"
 		source "$COMMONCONF"
-		curl -s \
+		curl \
 	    -F "token=$APP_TOKEN" \
 	    -F "user=$USER_TOKEN" \
 	    -F "title=$TITLE" \
 	    -F "message=$MESSAGE" \
-	    https://api.pushover.net/1/messages.json
+	    https://api.pushover.net/1/messages.json "$OPT"
 	fi
 }
 
