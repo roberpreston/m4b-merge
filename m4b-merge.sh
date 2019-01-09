@@ -124,11 +124,11 @@ function audibleparser() {
 	unset useoldmeta
 
 	# Check for multiple narrators
-	NARRCMD="$(grep "searchNarrator=" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | uniq | recode html..ascii)"
+	NARRCMD="$(grep "searchNarrator=" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | sort -u | recode html..ascii)"
 	if [[ $(echo "$NARRCMD" | wc -l) -gt 1 ]]; then
 		log "NOTICE: Correcting formatting for multiple narrators..."
 		NUM="$(echo "$NARRCMD" | wc -l)"
-		NARRCMD="$(cat "$AUDMETAFILE" | grep "searchNarrator=" | grep -o -P '(?<=>).*(?=<)' | uniq | sed -e "2,${NUM}{s#^#, #}" | tr -d '\n' | recode html..ascii)"
+		NARRCMD="$(cat "$AUDMETAFILE" | grep "searchNarrator=" | grep -o -P '(?<=>).*(?=<)' | sort -u | sed -e "2,${NUM}{s#^#, #}" | tr -d '\n' | recode html..ascii)"
 	fi
 	AUTHORCMD="$(grep "/author/" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | head -n1 | recode html..ascii)"
 	# Prefer being strict about authors, unless we can't find them.
