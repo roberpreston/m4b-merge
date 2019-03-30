@@ -37,7 +37,7 @@ usage="	$(basename "$0") $VER [-a] [-f] [-h] [-n] [-v] [-y]
 		;;
 	n) PUSHOVER=true
 		;;
-	v) VRBOSE=1
+	v) VERBOSE=true
 		;;
 	y) YPROMPT=true
 		;;
@@ -197,7 +197,7 @@ function audibleparser() {
 }
 
 function tageditor() {
-	if [[ $VRBOSE == "1" ]]; then
+	if [[ $VERBOSE == "true" ]]; then
 		OPT="--verbose"
 	fi
 	notice "Editing file metadata tags..."
@@ -205,7 +205,7 @@ function tageditor() {
 }
 
 function singlefile() {
-	if [[ $VRBOSE == "1" ]]; then
+	if [[ $VERBOSE == "true" ]]; then
 		OPT="--verbose"
 	fi
 	if [[ $sfile == "true" && -n $EXT ]]; then
@@ -395,7 +395,7 @@ function pushovr() {
 	# Check if user wanted notifications
 	if [ "$PUSHOVER" = "true" ]; then
 		notice "Sending Pushover notification..."
-		if [[ $VRBOSE == "1" ]]; then
+		if [[ $VERBOSE == "true" ]]; then
 			OPT="--verbose"
 		else
 			OPT="--silent > /dev/null"
