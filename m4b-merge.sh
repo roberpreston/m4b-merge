@@ -6,7 +6,7 @@ VER=1.0
 TOMOVE="/home/$USER/Downloads/audiobooks/SORTING"
 OUTPUT="/mnt/hdd/audiobooks"
 
-M4BPATH="/home/$USER/m4b-tool/m4b-tool.phar"
+M4BPATH="m4b-tool"
 AUDCOOKIES="/tmp/aud-cookies.txt" # Path to cookies file for audible
 
 # Common config, shared between multiple scripts
