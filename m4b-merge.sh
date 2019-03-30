@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script to use m4b-tool to merge audiobooks, easily.
-## REQUIRES: 'pip install mid3v2', pv, https://github.com/sandreas/m4b-tool
+## REQUIRES: mutagen pv, https://github.com/sandreas/m4b-tool
 VER=1.1
 
 #LOCAL FOLDERS
