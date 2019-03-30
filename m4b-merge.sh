@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script to use m4b-tool to merge audiobooks, easily.
-## REQUIRES: mid3v2 pv https://github.com/sandreas/m4b-tool
-VER=1.0
+## REQUIRES: 'pip install mid3v2', pv, https://github.com/sandreas/m4b-tool
+VER=1.1
 
 #LOCAL FOLDERS
 TOMOVE="/home/$USER/Downloads/audiobooks/SORTING"
@@ -74,14 +74,14 @@ function preprocess() {
 
 	if [[ -d $SELDIR && -n $EXT ]] || [[ -f $SELDIR && $EXT == "m4b" ]]; then
 		# After we verify the input needs to be merged, lets run the merge command.
-		php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)" | pv -l -p -t > /dev/null
-		echo "Merge completed for $namevar."
+		pipe php "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)"
+		color_highlight "Merge completed for $namevar."
 	elif [[ -f $SELDIR && $EXT == "mp3" ]]; then
 		sfile="true"
 		singlefile
 	elif [[ -z $EXT ]]; then
-		echo "ERROR: No recognized filetypes found for $namevar."
-		echo "WARNING: Skipping..."
+		error "No recognized filetypes found for $namevar."
+		warn "Skipping..."
 	fi
 }
 
@@ -91,7 +91,7 @@ function audibleparser() {
 	if [[ $YPROMPT == "true" ]]; then
 		useoldmeta="y"
 	elif [[ -s $AUDMETAFILE ]]; then # Check if we can use existing audible data
-		echo "Cached Audible metadata for $BASESELDIR exists"
+		color_highlight "Cached Audible metadata for $BASESELDIR exists"
 		read -e -p 'Use existing metadata? y/n: ' useoldmeta
 	elif [[ ! -f $AUDMETAFILE ]]; then # Check if we can use an existing metadata entry
 		useoldmeta="n"
@@ -101,17 +101,17 @@ function audibleparser() {
 		RET=1
 		until [[ $RET -eq 0 ]]; do
 			echo ""
-			echo "Enter Audible ASIN for $BASESELDIR"
+			color_action "Enter Audible ASIN for $BASESELDIR"
 			read -e -p 'ASIN: ' ASIN
 
 			CHECKASIN="$(curl -o /dev/null -L --silent --head --write-out '%{http_code}\n' https://www.audible.com/pd/$ASIN)"
 			RET=$?
 
 			if [[ -z $ASIN ]]; then
-				echo "ERROR: No ASIN was entered. Try again."
+				error "No ASIN was entered. Try again."
 				RET=1
 			elif [[ $CHECKASIN != "200" ]]; then
-				echo "ERROR: Could not access ASIN for $BASESELDIR (Was it entered correctly?)"
+				error "Could not access ASIN for $BASESELDIR (Was it entered correctly?)"
 				RET=1
 			elif [[ $CHECKASIN == "200" ]]; then
 				RET=0
@@ -120,9 +120,9 @@ function audibleparser() {
 	fi
 	if [[ ! -s $AUDMETAFILE ]] || [[ -s $AUDMETAFILE && $useoldmeta == "n" ]]; then
 		if [[ ! -s $AUDCOOKIES ]]; then
-			echo "WARN: Cookie file missing. This may lead to certain elements not working (like series and book numbering)"
+			warn "Cookie file missing. This may lead to certain elements not working (like series and book numbering)"
 		fi
-		echo "Fetching metadata from Audible..."
+		color_action "Fetching metadata from Audible..."
 		curl -L -H "User-Agent: Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.2; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0)" --cookie $AUDCOOKIES https://www.audible.com/pd/$ASIN -s -o "$AUDMETAFILE"
 	fi
 
@@ -131,35 +131,35 @@ function audibleparser() {
 	# Check for multiple narrators
 	NARRCMD="$(grep "searchNarrator=" "$AUDMETAFILE" | grep c1_narrator | grep -o -P '(?<=>).*(?=<)' | sort -u | iconv -f utf8 -t ascii//TRANSLIT)"
 	if [[ $(echo "$NARRCMD" | wc -l) -gt 1 ]]; then
-		log "NOTICE: Correcting formatting for multiple narrators..."
+		notice "Correcting formatting for multiple narrators..."
 		NUM="$(echo "$NARRCMD" | wc -l)"
 		NARRCMD="$(cat "$AUDMETAFILE" | grep "searchNarrator=" | grep c1_narrator | grep -o -P '(?<=>).*(?=<)' | sort -u | sed -e "2,${NUM}{s#^#, #}" | tr -d '\n' | iconv -f utf8 -t ascii//TRANSLIT)"
 	fi
 	AUTHORCMD="$(grep "/author/" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | head -n1 | iconv -f utf8 -t ascii//TRANSLIT)"
 	# Prefer being strict about authors, unless we can't find them.
 	if [[ -z $AUTHORCMD ]]; then
-		log "NOTICE: Could not find author using default method. Trying backup method..."
+		notice "Could not find author using default method. Trying backup method..."
 		AUTHORCMD="$(cat "$AUDMETAFILE" | grep "author" | grep -o -P '(?<=>).*(?=<)' | head -n1 | iconv -f utf8 -t ascii//TRANSLIT)"
 	fi
 	TICTLECMD="$(grep "title"  "$AUDMETAFILE" | grep "content=" -m 1 | head -n1 | grep -o -P '(?<=content=").*(?=")' | sed -e 's/[[:space:]]*$//' | iconv -f utf8 -t ascii//TRANSLIT)"
 	SERIESCMD="$(grep "/series?" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | iconv -f utf8 -t ascii//TRANSLIT)"
 	if [[ $(echo "$SERIESCMD" | grep "chronological" | wc -l) -ge 1 ]]; then
-		log "NOTICE: Detected 2 book orders. Using Chronological order."
+		notice "Detected 2 book orders. Using Chronological order."
 		SERIESCMD="$(grep "chronological" -m 1 "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=,)' | sed -e 's#</a>##' | iconv -f utf8 -t ascii//TRANSLIT)"
 		if [[ $(echo "$SERIESCMD" | grep "Book" | wc -l) -lt 1 ]]; then
-			log "NOTICE: Detected possible issue with Book number missing. Being less strict to retrieve it."
+			notice "Detected possible issue with Book number missing. Being less strict to retrieve it."
 			SERIESCMD="$(grep "chronological" -m 1 "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=)' | sed -e 's#</a>##' | iconv -f utf8 -t ascii//TRANSLIT)"
 		fi
 	fi
 	BOOKNUM="$(grep "/series?" -A 1 "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=)' | cut -d ',' -f 2 | sed -e 's/^[[:space:]]*//' | iconv -f utf8 -t ascii//TRANSLIT)"
 	# Don't include book number, if it doesn't actually say which book it is
 	if [[ $(echo "$BOOKNUM" | grep "Book" | wc -l ) -lt 1 ]] || [[ $(echo "$BOOKNUM" | grep "Book" | wc -l ) -gt 1 ]]; then
-		log "NOTICE: Detected either no book number, or more than 1 book number."
+		notice "Detected either no book number, or more than 1 book number."
 		BOOKNUM=""
 	fi
 	SUBTITLE="$(grep "subtitle" -m 1 -A 5 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | iconv -f utf8 -t ascii//TRANSLIT | tr -dc '[:print:]')"
 	if [[ $(echo "$SUBTITLE" | grep "$(echo "$SERIESCMD" | cut -d ' ' -f 1-2)" | wc -l) -ge 1 ]]; then
-		log "NOTICE: Subtitle appears to be the same or similar to series name. Excluding the subtitle."
+		notice "Subtitle appears to be the same or similar to series name. Excluding the subtitle."
 		SUBTITLE=""
 	fi
 	BKDATE1="$(grep "releaseDateLabel" -A 3 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | tr '-' '/' | iconv -f utf8 -t ascii//TRANSLIT)"
@@ -190,8 +190,8 @@ function audibleparser() {
 
 	makearray
 
-	echo "Metadata parsed as ( Title | Album | Narrator | Author ):"
-	echo "$m4bvar1 | $m4bvar2 | $m4bvar3 | $m4bvar4"
+	color_highlight "Metadata parsed as ( Title | Album | Narrator | Author ):"
+	color_highlight "$m4bvar1 | $m4bvar2 | $m4bvar3 | $m4bvar4"
 	echo ""
 	unset m4bvar1 m4bvar2 m4bvar3 m4bvar4
 }
@@ -200,7 +200,7 @@ function tageditor() {
 	if [[ $VRBOSE == "1" ]]; then
 		OPT="--verbose"
 	fi
-	log "Editing file metadata tags..."
+	notice "Editing file metadata tags..."
 	mid3v2 --track="1/1" --song="$namevar" --album="$albumvar" --TPE2="$albumartistvar" --artist="$artistvar" --date="$BKDATE" $OPT "$(dirname "$SELDIR")"/"$BASESELDIR"
 }
 
@@ -217,7 +217,7 @@ function singlefile() {
 			mv "$(dirname "$SELDIR")"/"$BASESELDIR"/*.$EXT "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" $OPT
 		fi
 	fi
-	echo "Processed single input file for $namevar."
+	color_highlight "Processed single input file for $namevar."
 }
 
 function makearray() {
@@ -252,14 +252,14 @@ function collectmeta() {
 			if [[ $YPROMPT == "true" ]]; then
 				useoldmeta="y"
 			elif [[ -s $M4BSELFILE ]]; then # Check if we can use an existing metadata entry
-				echo "Metadata for $BASESELDIR exists"
+				color_highlight "Metadata for $BASESELDIR exists"
 				read -e -p 'Use existing metadata? y/n: ' useoldmeta
 			elif [[ ! -f $M4BSELFILE ]]; then # Check if we can use an existing metadata entry
 				useoldmeta="n"
 			fi
 
 			if [[ $useoldmeta == "n" ]]; then
-				echo -e "\e[92mEnter metadata for $BASESELDIR\e[0m"
+				color_highlight "Enter metadata for $BASESELDIR"
 				# Each line has a line after input, adding that value to an array.
 				read -e -p 'Enter name: ' m4bvar1
 				read -e -p 'Enter Albumname: ' m4bvar2
@@ -283,8 +283,8 @@ function collectmeta() {
 				# Call array function
 				makearray
 			elif [[ -s $M4BSELFILE && $useoldmeta == "y" ]]; then
-				echo "Using this metadata then:"
-				echo "$(cat "$M4BSELFILE" | tr '_' ' ')"
+				color_highlight "Using this metadata then:"
+				color_highlight "$(cat "$M4BSELFILE" | tr '_' ' ')"
 				echo ""
 			fi
 		fi
@@ -308,8 +308,8 @@ function batchprocess() {
 	INPUTNUM="${#FILEIN[@]}"
 	((COUNTER++))
 	# Output number of folders to process
-	echo "Let's begin processing input folders"
-	echo "Number of folders to process: $INPUTNUM"
+	color_action "Let's begin processing input folders"
+	color_highlight "Number of folders to process: $INPUTNUM"
 
 	for SELDIR in "${FILEIN[@]}"; do
 		# Basename of array values
@@ -324,7 +324,7 @@ function batchprocess() {
 		if [[ -s $M4BSELFILE ]]; then
 			#echo "Starting conversion of "$namevar""
 			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
-			echo  "($COUNTER of $INPUTNUM): Processing $albumvar..."
+			color_action  "($COUNTER of $INPUTNUM): Processing $albumvar..."
 
 			echo "old='Old size: $(du -hk "$SELDIR" | cut -f 1)'" > "$METADATA"
 			# Process input, and determine if we need to run merge, or just cleanup the metadata a bit.
@@ -339,14 +339,14 @@ function batchprocess() {
 				rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
 			fi
 		else
-			echo "ERROR: metadata file for $BASESELDIR does not exist"
+			error "metadata file for $BASESELDIR does not exist"
 			exit 1
 		fi
 	done
 }
 
 function batchprocess2() {
-	echo "Let's go over the folders that have been processed:"
+	color_highlight "Let's go over the folders that have been processed:"
 	for SELDIR in "${FILEIN[@]}"; do
 		BASESELDIR="$(basename "$SELDIR")"
 		METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
@@ -357,18 +357,18 @@ function batchprocess2() {
 		if [[ -s $METADATA ]]; then
 			source $METADATA
 		else
-			echo "ERROR: metadata file for $BASESELDIR not found. Skipping..."
+			error "metadata file for $BASESELDIR not found. Skipping..."
 		fi
 
 		# Check that this metadata is ready to process, and then display info to user.
 		if [[ "$processed" == "true" ]]; then
-			echo "Checking $BASESELDIR ..."
-			echo "Previous folder size: $old"
-			echo "New folder size: $new"
+			color_highlight "Checking $BASESELDIR ..."
+			color_highlight "Previous folder size: $old"
+			color_highlight "New folder size: $new"
 			read -e -p 'Should this source be deleted? y/n: ' delvar
 			if [[ $delvar == "y" ]]; then
 				echo "rm -rf "$SELDIR"" >> "$DELTRUE"
-				echo "Pruning old metadata files..."
+				color_action "Pruning old metadata files..."
 				if [[ -s $METADATA ]]; then
 					rm "$METADATA"
 				fi
@@ -382,11 +382,11 @@ function batchprocess2() {
 		fi
 	done
 
-	echo "Ok, now deleting the folders you confirmed..."
+	color_action "Ok, now deleting the folders you confirmed..."
 
 	# Process removal commands on source folders.
 	for line in $DELTRUE; do
-		echo "Executing $line"
+		color_action "Executing $line"
 		"$line"
 	done
 }
@@ -394,7 +394,7 @@ function batchprocess2() {
 function pushovr() {
 	# Check if user wanted notifications
 	if [ "$PUSHOVER" = "true" ]; then
-		log "Sending Pushover notification..."
+		notice "Sending Pushover notification..."
 		if [[ $VRBOSE == "1" ]]; then
 			OPT="--verbose"
 		else
@@ -412,20 +412,58 @@ function pushovr() {
 	fi
 }
 
-function log () {
-    if [[ $VRBOSE -eq 1 ]]; then
-        echo "$@"
+### Style functions ###
+function notice () {
+    if [[ $VERBOSE == "true" ]]; then
+        echo -e "\e[34mNOTICE: $@\e[0m"
     fi
 }
 
-### End functions ###
+function warn () {
+    if [[ $VERBOSE == "true" ]]; then
+        echo -e "\e[33mWARN: $@\e[0m"
+    fi
+}
 
-log "NOTICE: Verbose mode is ON"
+function error () {
+	# Color and text for error echoes
+    echo -e "\e[91mERROR: $@\e[0m"
+}
+
+function color_highlight () {
+	# Color and text for error echoes
+    echo -e "\e[96m$@\e[0m"
+}
+
+function color_action () {
+	# Color and text for error echoes
+    echo -e "\e[95m$@\e[0m"
+}
+
+function pipe() {
+	# Function to replace output text with pv.
+	if [[ $VERBOSE == "true" ]]; then
+		"$@"
+	else
+		"$@" 2> /dev/null | pv -l -p -t > /dev/null
+	fi
+}
+
+function silenterror() {
+	if [[ $VERBOSE == "true" ]]; then
+		"$@"
+	else
+		"$@" 2> /dev/null
+	fi
+}
+#### End functions ####
+
+notice "NOTICE: Verbose mode is ON"
 
 # Small one time check for 'pv'
 if [[ ! -f "$(dirname "$M4BPATH")"/.pv.lock ]]; then
 	if [[ $(which pv) == "" ]]; then
-		echo "The program for progress bar is missing."
+		error "The program for progress bar is missing."
 		read -e -p 'Install it now? y/n: ' pvvar
 		if [[ $pvvar == "y" ]]; then
 			sudo apt-get install pv
@@ -436,7 +474,7 @@ fi
 
 # Make sure user gave usable INPUT
 if [[ -z ${FILEIN[@]} ]]; then
-	echo "ERROR: No file inputs given."
+	error "No file inputs given."
 	echo "$usage"
 	exit 1
 fi
@@ -448,10 +486,10 @@ batchprocess
 # Send notification
 pushovr
 
-log "Starting rclone background move"
+notice "Starting rclone background move"
 tmux new-session -d -s "rclonem4b" rclone move "$TOMOVE" "$OUTPUT" --transfers=1 --verbose --stats 15s; find "$TOMOVE" -type d -empty -delete
 
 # NOTE: Batchprocess2 is still buggy and needs to be re-written, so it's disabled for now.
 #batchprocess2
 
-echo "Script complete."
+color_highlight "Script complete."
