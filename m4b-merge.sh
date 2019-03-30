@@ -118,7 +118,7 @@ function audibleparser() {
 	fi
 	if [[ ! -s $AUDMETAFILE ]] || [[ -s $AUDMETAFILE && $useoldmeta == "n" ]]; then
 		echo "Fetching metadata from Audible..."
-		curl -L -H "User-Agent: Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.2; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0)" https://www.audible.com/pd/$ASIN -s -o "$AUDMETAFILE"
+		curl -L -H "User-Agent: Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.2; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0)" --cookies /tmp/aud-cookies.txt https://www.audible.com/pd/$ASIN -s -o "$AUDMETAFILE"
 	fi
 
 	unset useoldmeta
