@@ -1,5 +1,6 @@
 #!/bin/bash
 # Script to use m4b-tool to merge audiobooks, easily.
+## REQUIRES: mid3v2 pv https://github.com/sandreas/m4b-tool
 VER=1.0
 
 #LOCAL FOLDERS
@@ -452,6 +453,5 @@ tmux new-session -d -s "rclonem4b" rclone move "$TOMOVE" "$OUTPUT" --transfers=1
 
 # NOTE: Batchprocess2 is still buggy and needs to be re-written, so it's disabled for now.
 #batchprocess2
-cleanup
 
 echo "Script complete."
