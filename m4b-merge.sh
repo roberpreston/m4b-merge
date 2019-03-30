@@ -411,11 +411,6 @@ function pushovr() {
 	fi
 }
 
-function cleanup() {
-	#various cleanup routines
-	rm /tmp/aud-cookies.txt
-}
-
 function log () {
     if [[ $VRBOSE -eq 1 ]]; then
         echo "$@"
