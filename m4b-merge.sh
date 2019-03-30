@@ -117,8 +117,15 @@ function audibleparser() {
 		done
 	fi
 	if [[ ! -s $AUDMETAFILE ]] || [[ -s $AUDMETAFILE && $useoldmeta == "n" ]]; then
+		if [[ ! -s /tmp/aud-cookies.txt ]]; then
+			echo "You should sign into audible first"
+			read -e -p 'Audible username: ' auduser
+			read -e -p 'Audible password: ' audpass
+			echo "Signing into audible..."
+			curl -L --user $auduser:$audpass --cookie-jar /tmp/aud-cookies.txt -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.89 Safari/537.36" https://www.amazon.com/ap/signin -s
+		fi
 		echo "Fetching metadata from Audible..."
-		curl -L -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.89 Safari/537.36" https://www.audible.com/pd/$ASIN -s -o "$AUDMETAFILE"
+		curl -L -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.89 Safari/537.36" --cookie /tmp/aud-cookies.txt https://www.audible.com/pd/$ASIN -s -o "$AUDMETAFILE"
 	fi
 
 	unset useoldmeta
@@ -407,6 +414,11 @@ function pushovr() {
 	fi
 }
 
+function cleanup() {
+	#various cleanup routines
+	rm /tmp/aud-cookies.txt
+}
+
 function log () {
     if [[ $VRBOSE -eq 1 ]]; then
         echo "$@"
@@ -448,5 +460,6 @@ tmux new-session -d -s "rclonem4b" rclone move "$TOMOVE" "$OUTPUT" --transfers=1
 
 # NOTE: Batchprocess2 is still buggy and needs to be re-written, so it's disabled for now.
 #batchprocess2
+cleanup
 
 echo "Script complete."
