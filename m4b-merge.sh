@@ -445,7 +445,12 @@ function pipe() {
 	if [[ $VERBOSE == "true" ]]; then
 		"$@"
 	else
-		"$@" 2> /dev/null | pv -l -p -t > /dev/null
+		SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+		if [[ ! -f "$SCRIPTDIR"/.pv.lock ]]; then
+			"$@"
+		else
+			"$@" 2> /dev/null | pv -l -p -t -N "Processing" > /dev/null
+		fi
 	fi
 }
 
@@ -461,14 +466,21 @@ function silenterror() {
 notice "NOTICE: Verbose mode is ON"
 
 # Small one time check for 'pv'
-if [[ ! -f "$(dirname "$M4BPATH")"/.pv.lock ]]; then
-	if [[ $(which pv) == "" ]]; then
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+if [[ ! -f "$SCRIPTDIR"/.pv.lock ]]; then
+	if [[ -z $(which pv) ]]; then
 		error "The program for progress bar is missing."
 		read -e -p 'Install it now? y/n: ' pvvar
 		if [[ $pvvar == "y" ]]; then
-			sudo apt-get install pv
+			color_action "Installing pv..."
+			silentall sudo apt-get -y install pv
+			if [ $? -eq 0 ]; then
+				color_highlight "Done installing."
+				touch "$SCRIPTDIR"/.pv.lock
+			else
+				error "Something went wrong during pv install."
+			fi
 		fi
-		touch "$(dirname "$M4BPATH")"/.pv.lock
 	fi
 fi
 
