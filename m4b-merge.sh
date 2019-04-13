@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script to use m4b-tool to merge audiobooks, easily.
 ## REQUIRES: mutagen pv, https://github.com/sandreas/m4b-tool
-VER=1.1
+VER=1.1.1
 
 #LOCAL FOLDERS
 TOMOVE="/home/$USER/Downloads/audiobooks/SORTING"
