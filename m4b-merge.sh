@@ -502,7 +502,7 @@ batchprocess
 pushovr
 
 notice "Starting rclone background move"
-tmux new-session -d -s "rclonem4b" rclone move "$TOMOVE" "$OUTPUT" --transfers=1 --verbose --stats 15s; find "$TOMOVE" -type d -empty -delete
+tmux new-session -d -s "rclonem4b" rclone move "$TOMOVE" "$OUTPUT" --transfers=1 -P; find "$TOMOVE" -type d -empty -delete
 
 # NOTE: Batchprocess2 is still buggy and needs to be re-written, so it's disabled for now.
 #batchprocess2
