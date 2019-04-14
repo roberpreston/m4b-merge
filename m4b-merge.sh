@@ -481,6 +481,9 @@ if [[ ! -f "$SCRIPTDIR"/.pv.lock ]]; then
 				error "Something went wrong during pv install."
 			fi
 		fi
+	else
+		notice "pv installation detected, making lock file"
+		touch "$SCRIPTDIR"/.pv.lock
 	fi
 fi
 
