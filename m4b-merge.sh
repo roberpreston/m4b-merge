@@ -4,7 +4,6 @@
 VER=1.1.2
 
 #LOCAL FOLDERS
-TOMOVE=""
 OUTPUT=""
 
 # Command for m4b-tool, can be full path or just alias/command.
@@ -25,13 +24,6 @@ if [[ ! -d /output ]]; then
 	# Check if output env var is empty
 	if [[ -z $OUTPUT ]]; then
 		OUTPUT="/mnt/hdd/audiobooks"
-	fi
-else
-	if [[ ! -d /staging ]]; then
-		# Check if input env var is empty
-		if [[ -z $TOMOVE ]]; then
-			TOMOVE="$OUTPUT/SORTING"
-		fi
 	fi
 fi
 
@@ -95,7 +87,7 @@ function preprocess() {
 
 	if [[ -d $SELDIR && -n $EXT ]] || [[ -f $SELDIR && $EXT == "m4b" ]]; then
 		# After we verify the input needs to be merged, lets run the merge command.
-		pipe "$M4BPATH" merge "$SELDIR" --output-file="$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)"
+		pipe "$M4BPATH" merge "$SELDIR" --output-file="$OUTPUT"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --ffmpeg-threads="$(grep -c ^processor /proc/cpuinfo)"
 		color_highlight "Merge completed for $namevar."
 	elif [[ -f $SELDIR && $EXT == "mp3" ]]; then
 		sfile="true"
@@ -233,9 +225,9 @@ function singlefile() {
 		if [[ -f $SELDIR ]]; then
 			EXT="${SELDIR: -4}"
 			tageditor
-			mv "$(dirname "$SELDIR")"/"$BASESELDIR" "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar""$EXT" $OPT
+			mv "$(dirname "$SELDIR")"/"$BASESELDIR" "$OUTPUT"/"$albumartistvar"/"$albumvar"/"$namevar""$EXT" $OPT
 		elif [[ -d $SELDIR ]]; then
-			mv "$(dirname "$SELDIR")"/"$BASESELDIR"/*.$EXT "$TOMOVE"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" $OPT
+			mv "$(dirname "$SELDIR")"/"$BASESELDIR"/*.$EXT "$OUTPUT"/"$albumartistvar"/"$albumvar"/"$namevar"."$EXT" $OPT
 		fi
 	fi
 	color_highlight "Processed single input file for $namevar."
@@ -344,7 +336,7 @@ function batchprocess() {
 		# Make sure output file exists as expected
 		if [[ -s $M4BSELFILE ]]; then
 			#echo "Starting conversion of "$namevar""
-			mkdir -p "$TOMOVE"/"$albumartistvar"/"$albumvar"
+			mkdir -p "$OUTPUT"/"$albumartistvar"/"$albumvar"
 			color_action  "($COUNTER of $INPUTNUM): Processing $albumvar..."
 
 			echo "old='Old size: $(du -hk "$SELDIR" | cut -f 1)'" > "$METADATA"
@@ -353,11 +345,11 @@ function batchprocess() {
 			unset sfile
 			((COUNTER++))
 
-			echo "new='New size: $(du -hk "$TOMOVE"/"$albumartistvar"/"$albumvar" | cut -f 1)'" >> "$METADATA"
+			echo "new='New size: $(du -hk "$OUTPUT"/"$albumartistvar"/"$albumvar" | cut -f 1)'" >> "$METADATA"
 			echo "processed='true'" >> "$METADATA"
 			unset namevar albumvar artistvar albumartistvar
 			if [[ $sfile == "false" && -d $SELDIR ]]; then
-				rm -rf "$TOMOVE"/"$albumartistvar"/"$albumvar"/*-tmpfiles
+				rm -rf "$OUTPUT"/"$albumartistvar"/"$albumvar"/*-tmpfiles
 			fi
 		else
 			error "metadata file for $BASESELDIR does not exist"
@@ -531,9 +523,6 @@ collectmeta
 batchprocess
 # Send notification
 pushovr
-
-notice "Starting rclone background move"
-tmux new-session -d -s "rclonem4b" rclone move "$TOMOVE" "$OUTPUT" --transfers=1 -P; find "$TOMOVE" -type d -empty -delete
 
 # NOTE: Batchprocess2 is still buggy and needs to be re-written, so it's disabled for now.
 #batchprocess2
