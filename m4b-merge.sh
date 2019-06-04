@@ -1,18 +1,31 @@
 #!/bin/bash
 # Script to use m4b-tool to merge audiobooks, easily.
 ## REQUIRES: mutagen pv, https://github.com/sandreas/m4b-tool
-VER=1.1.1
+VER=1.1.2
 
 #LOCAL FOLDERS
-TOMOVE="/home/$USER/Downloads/audiobooks/SORTING"
-OUTPUT="/mnt/hdd/audiobooks"
+TOMOVE=""
+OUTPUT=""
 
-M4BPATH="m4b-tool"
-AUDCOOKIES="/tmp/aud-cookies.txt" # Path to cookies file for audible
+# Command for m4b-tool, can be full path or just alias/command.
+M4BPATH=""
+
+# Path to cookies file for audible
+AUDCOOKIES="/tmp/aud-cookies.txt"
 
 # Common config, shared between multiple scripts
 COMMONCONF="/home/$USER/.config/scripts/common.cfg"
 
+# If anything isn't set, assume defaults
+if [[ -z $M4BPATH ]]; then
+	M4BPATH="m4b-tool"
+fi
+if [[ -z $TOMOVE ]]; then
+	TOMOVE="/home/$USER/Downloads/audiobooks/SORTING"
+fi
+if [[ -z $OUTPUT ]]; then
+	OUTPUT="/mnt/hdd/audiobooks"
+fi
 
 # -h help text to print
 usage="	$(basename "$0") $VER [-a] [-f] [-h] [-n] [-v] [-y]
@@ -465,6 +478,7 @@ function silenterror() {
 
 notice "NOTICE: Verbose mode is ON"
 
+#### Checks ####
 # Small one time check for 'pv'
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 if [[ ! -f "$SCRIPTDIR"/.pv.lock ]]; then
@@ -493,6 +507,15 @@ if [[ -z ${FILEIN[@]} ]]; then
 	echo "$usage"
 	exit 1
 fi
+
+# verify m4b command works properly
+if [[ ! -z $($M4BPATH -h) ]]; then
+	if [[ $? -ne 0 ]]; then
+		error "Could not successfully run m4b-tool, exiting."
+		exit 1
+	fi
+fi
+#### End checks ####
 
 # Gather metadata from user
 collectmeta
