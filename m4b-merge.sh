@@ -20,18 +20,18 @@ COMMONCONF="/home/$USER/.config/scripts/common.cfg"
 if [[ -z $M4BPATH ]]; then
 	M4BPATH="m4b-tool"
 fi
-# Check if there's no /input folder from docker
-if [[ -d /input ]]; then
-	# Check if input env var is empty
-	if [[ -z $TOMOVE ]]; then
-		TOMOVE="/home/$USER/Downloads/audiobooks/SORTING"
-	fi
-fi
 # Check if there's no /output folder from docker
 if [[ ! -d /output ]]; then
 	# Check if output env var is empty
 	if [[ -z $OUTPUT ]]; then
 		OUTPUT="/mnt/hdd/audiobooks"
+	fi
+else
+	if [[ ! -d /staging ]]; then
+		# Check if input env var is empty
+		if [[ -z $TOMOVE ]]; then
+			TOMOVE="$OUTPUT/SORTING"
+		fi
 	fi
 fi
 
