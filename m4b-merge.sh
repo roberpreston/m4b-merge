@@ -106,7 +106,7 @@ function preprocess() {
 function audibleparser() {
 	AUDMETAFILE="/tmp/.audmeta.$BASESELDIR.txt"
 
-	if [[ $YPROMPT == "true" ]]; then
+	if [[ $YPROMPT == "true" && -f $AUDMETAFILE ]]; then
 		useoldmeta="y"
 	elif [[ -s $AUDMETAFILE ]]; then # Check if we can use existing audible data
 		color_highlight "Cached Audible metadata for $BASESELDIR exists"
