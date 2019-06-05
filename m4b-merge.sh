@@ -258,11 +258,11 @@ function makearray() {
 }
 
 function collectmeta() {
-	if [[ $BATCHMODE == "true" && $(echo "${FILEIN[@]}" | wc -l) -eq 1 ]]; then
+	if [[ $BATCHMODE == "true" && $(echo ${FILEIN[@]} | wc -l) -eq 1 ]]; then
 		# This will recursively go through the input folder
 		MULTIORNAH="/*"
 	fi
-	for SELDIR in "${FILEIN[@]}"$MULTIORNAH; do
+	for SELDIR in ${FILEIN[@]}$MULTIORNAH; do
 		# Basename of array values
 		BASESELDIR="$(basename "$SELDIR")"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
@@ -326,9 +326,9 @@ function importmetadata() {
 }
 
 function batchprocess() {
-	if [[ $BATCHMODE == "true" && $(echo "${FILEIN[@]}" | wc -l) -eq 1 ]]; then
+	if [[ $BATCHMODE == "true" && $(echo ${FILEIN[@]} | wc -l) -eq 1 ]]; then
 		# This will recursively go through the input folder
-		INPUTNUM="$(ls "${FILEIN[@]}" | wc -l)"
+		INPUTNUM="$(ls ${FILEIN[@]} | wc -l)"
 	else
 		INPUTNUM="${#FILEIN[@]}"
 	fi
@@ -337,7 +337,7 @@ function batchprocess() {
 	color_action "Let's begin processing input folders"
 	color_highlight "Number of folders to process: $INPUTNUM"
 
-	for SELDIR in "${FILEIN[@]}"$MULTIORNAH; do
+	for SELDIR in ${FILEIN[@]}$MULTIORNAH; do
 		# Basename of array values
 		BASESELDIR="$(basename "$SELDIR")"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
@@ -373,7 +373,7 @@ function batchprocess() {
 
 function batchprocess2() {
 	color_highlight "Let's go over the folders that have been processed:"
-	for SELDIR in "${FILEIN[@]}"$MULTIORNAH; do
+	for SELDIR in ${FILEIN[@]}$MULTIORNAH; do
 		BASESELDIR="$(basename "$SELDIR")"
 		METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
@@ -515,7 +515,7 @@ if [[ ! -f "$SCRIPTDIR"/.pv.lock ]]; then
 fi
 
 # Make sure user gave usable INPUT
-if [[ -z "${FILEIN[@]}" ]]; then
+if [[ -z ${FILEIN[@]} ]]; then
 	error "No file inputs given."
 	echo "$usage"
 	exit 1
