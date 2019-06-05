@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script to use m4b-tool to merge audiobooks, easily.
 ## REQUIRES: mutagen pv, https://github.com/sandreas/m4b-tool
-VER=1.1.2
+VER=1.2
 
 #LOCAL FOLDERS
 OUTPUT=""
@@ -25,6 +25,8 @@ if [[ ! -d /output ]]; then
 	if [[ -z $OUTPUT ]]; then
 		OUTPUT="/mnt/hdd/audiobooks"
 	fi
+else
+	OUTPUT="/output"
 fi
 
 # -h help text to print
