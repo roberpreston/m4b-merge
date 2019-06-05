@@ -326,7 +326,12 @@ function importmetadata() {
 }
 
 function batchprocess() {
-	INPUTNUM="${#FILEIN[@]}$MULTIORNAH"
+	if [[ $BATCHMODE == "true" && $(echo ${FILEIN[@]} | wc -l) -eq 1 ]]; then
+		# This will recursively go through the input folder
+		INPUTNUM="$(ls ${FILEIN[@]} | wc -l)"
+	else
+		INPUTNUM="${#FILEIN[@]}"
+	fi
 	((COUNTER++))
 	# Output number of folders to process
 	color_action "Let's begin processing input folders"
