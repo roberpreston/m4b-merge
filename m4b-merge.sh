@@ -326,7 +326,7 @@ function importmetadata() {
 }
 
 function batchprocess() {
-	INPUTNUM="${#FILEIN[@]}"
+	INPUTNUM="${#FILEIN[@]}$MULTIORNAH"
 	((COUNTER++))
 	# Output number of folders to process
 	color_action "Let's begin processing input folders"
