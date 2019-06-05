@@ -17,7 +17,7 @@ COMMONCONF="/home/$USER/.config/scripts/common.cfg"
 
 # If anything isn't set, assume defaults
 if [[ -z $M4BPATH ]]; then
-	M4BPATH="m4b-tool"
+	M4BPATH="$(which m4b-tool)"
 fi
 # Check if there's no /output folder from docker
 if [[ ! -d /output ]]; then
@@ -30,9 +30,10 @@ else
 fi
 
 # -h help text to print
-usage="	$(basename "$0") $VER [-a] [-f] [-h] [-n] [-v] [-y]
+usage="	$(basename "$0") $VER [-a] [-b] [-f] [-h] [-n] [-v] [-y]
 
 	'-a' Be prompted for Audible ASINs instead of manually entering metadata (BETA)
+	'-b' Batch mode. File input is used for 1 folder only.
 	'-f' File or folder to run from. Enter multiple files if you need, as: -f file1 -f file2 -f file3
 	'-h' This help text.
 	'-n' Enable Pushover notifications.
@@ -41,9 +42,11 @@ usage="	$(basename "$0") $VER [-a] [-f] [-h] [-n] [-v] [-y]
 	"
 
 # Flags for this script
-	while getopts ":af:hnvy" option; do
+	while getopts ":abf:hnvy" option; do
  case "${option}" in
 	a) AUDIBLEMETA=true
+		;;
+	b) BATCHMODE=true
 		;;
 	f) FILEIN+=("$(realpath "$OPTARG")")
 		;;
@@ -255,8 +258,11 @@ function makearray() {
 }
 
 function collectmeta() {
-	#New shits
-	for SELDIR in "${FILEIN[@]}"; do
+	if [[ $BATCHMODE == "true" && $(echo ${FILEIN[@]} | wc -l) -eq 1 ]]; then
+		# This will recursively go through the input folder
+		MULTIORNAH="/*"
+	fi
+	for SELDIR in ${FILEIN[@]}$MULTIORNAH; do
 		# Basename of array values
 		BASESELDIR="$(basename "$SELDIR")"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
@@ -326,7 +332,7 @@ function batchprocess() {
 	color_action "Let's begin processing input folders"
 	color_highlight "Number of folders to process: $INPUTNUM"
 
-	for SELDIR in "${FILEIN[@]}"; do
+	for SELDIR in ${FILEIN[@]}$MULTIORNAH; do
 		# Basename of array values
 		BASESELDIR="$(basename "$SELDIR")"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
@@ -362,7 +368,7 @@ function batchprocess() {
 
 function batchprocess2() {
 	color_highlight "Let's go over the folders that have been processed:"
-	for SELDIR in "${FILEIN[@]}"; do
+	for SELDIR in ${FILEIN[@]}$MULTIORNAH; do
 		BASESELDIR="$(basename "$SELDIR")"
 		METADATA="/tmp/.m4bmeta.$BASESELDIR.txt"
 		M4BSELFILE="/tmp/.m4bmerge.$BASESELDIR.txt"
@@ -489,7 +495,7 @@ if [[ ! -f "$SCRIPTDIR"/.pv.lock ]]; then
 		read -e -p 'Install it now? y/n: ' pvvar
 		if [[ $pvvar == "y" ]]; then
 			color_action "Installing pv..."
-			silentall sudo apt-get -y install pv
+			sudo apt-get -y install pv
 			if [ $? -eq 0 ]; then
 				color_highlight "Done installing."
 				touch "$SCRIPTDIR"/.pv.lock
@@ -511,7 +517,10 @@ if [[ -z ${FILEIN[@]} ]]; then
 fi
 
 # verify m4b command works properly
-if [[ ! -z $($M4BPATH -h) ]]; then
+if [[ -z $M4BPATH ]]; then
+	error "No m4b-tool installation detected. Exiting"
+	exit 1
+elif [[ -n $($M4BPATH -h) ]]; then
 	if [[ $? -ne 0 ]]; then
 		error "Could not successfully run m4b-tool, exiting."
 		exit 1
