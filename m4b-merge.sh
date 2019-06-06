@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script to use m4b-tool to merge audiobooks, easily.
 ## REQUIRES: mutagen pv, https://github.com/sandreas/m4b-tool
-VER=1.2
+VER=1.2.1
 
 #LOCAL FOLDERS
 OUTPUT=""
@@ -157,7 +157,7 @@ function audibleparser() {
 		AUTHORCMD="$(cat "$AUDMETAFILE" | grep "author" | grep -o -P '(?<=>).*(?=<)' | head -n1 | iconv -f utf8 -t ascii//TRANSLIT)"
 	fi
 	TICTLECMD="$(grep "title"  "$AUDMETAFILE" | grep "content=" -m 1 | head -n1 | grep -o -P '(?<=content=").*(?=")' | sed -e 's/[[:space:]]*$//' | iconv -f utf8 -t ascii//TRANSLIT)"
-	SERIESCMD="$(grep "/series?" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | iconv -f utf8 -t ascii//TRANSLIT)"
+	SERIESCMD="$(grep "/series" "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=<)' | iconv -f utf8 -t ascii//TRANSLIT)"
 	if [[ $(echo "$SERIESCMD" | grep "chronological" | wc -l) -ge 1 ]]; then
 		notice "Detected 2 book orders. Using Chronological order."
 		SERIESCMD="$(grep "chronological" -m 1 "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=,)' | sed -e 's#</a>##' | iconv -f utf8 -t ascii//TRANSLIT)"
@@ -166,7 +166,7 @@ function audibleparser() {
 			SERIESCMD="$(grep "chronological" -m 1 "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=)' | sed -e 's#</a>##' | iconv -f utf8 -t ascii//TRANSLIT)"
 		fi
 	fi
-	BOOKNUM="$(grep "/series?" -A 1 "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=)' | cut -d ',' -f 2 | sed -e 's/^[[:space:]]*//' | iconv -f utf8 -t ascii//TRANSLIT)"
+	BOOKNUM="$(grep "/series" -A 1 "$AUDMETAFILE" | grep -o -P '(?<=>).*(?=)' | cut -d ',' -f 2 | sed -e 's/^[[:space:]]*//' | iconv -f utf8 -t ascii//TRANSLIT)"
 	# Don't include book number, if it doesn't actually say which book it is
 	if [[ $(echo "$BOOKNUM" | grep "Book" | wc -l ) -lt 1 ]] || [[ $(echo "$BOOKNUM" | grep "Book" | wc -l ) -gt 1 ]]; then
 		notice "Detected either no book number, or more than 1 book number."
