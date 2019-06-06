@@ -76,19 +76,16 @@ function preprocess() {
 	importmetadata
 	# Common extensions for audiobooks.
 	# Check input for each of the above file types, ensuring we are not dealing with a pre-merged input.
-	EXT1="$(grep -i -r --include \*.m4a '*' "$SELDIR" | wc -l)"
-	EXT2="$(grep -i -r --include \*.mp3 '*' "$SELDIR" | wc -l)"
-	EXT3="$(grep -i -r --include \*.m4b '*' "$SELDIR" | wc -l)"
-
-	if [[ $EXT1 -ge 1 ]]; then
-		EXT="m4a"
-	elif [[ $EXT2 -ge 1 ]]; then
-		EXT="mp3"
-	elif [[ $EXT3 -ge 1 ]]; then
-		EXT="m4b"
-	elif [[ -z $EXT1 && -z $EXT2 && -z $EXT3 ]]; then
-		EXT=""
-	fi
+	EXT1="m4a"
+	EXT2="mp3"
+	EXT3="m4b"
+	EXT4="flac"
+	EXTARRAY=($EXT1 $EXT2 $EXT3 $EXT4)
+	for EXTENSION in ${EXTARRAY[@]}; do
+		if [[ $(grep -i -r --include \*.$EXTENSION '*' "$SELDIR" | wc -l) -ge 1 ]]; then
+			EXT="$EXTENSION"
+		fi
+	done
 
 	if [[ -d $SELDIR && -n $EXT ]] || [[ -f $SELDIR && $EXT == "m4b" ]]; then
 		# After we verify the input needs to be merged, lets run the merge command.
