@@ -173,7 +173,7 @@ function audibleparser() {
 		BOOKNUM=""
 	fi
 	SUBTITLE="$(grep "subtitle" -m 1 -A 5 "$AUDMETAFILE" | tail -n1 | sed -e 's/^[[:space:]]*//' | iconv -f utf8 -t ascii//TRANSLIT | tr -dc '[:print:]')"
-	if [[ $(echo "$SUBTITLE" | grep "$(echo "$SERIESCMD" | cut -d ' ' -f 1-2)" | wc -l) -ge 1 ]]; then
+	if [[ ! -z "$SERIESCMD" && $(echo "$SUBTITLE" | grep "$(echo "$SERIESCMD" | cut -d ' ' -f 1-2)" | wc -l) -ge 1 ]]; then
 		notice "Subtitle appears to be the same or similar to series name. Excluding the subtitle."
 		SUBTITLE=""
 	fi
