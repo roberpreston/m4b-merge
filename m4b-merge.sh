@@ -12,6 +12,9 @@ M4BPATH=""
 # Path to cookies file for audible
 AUDCOOKIES="/tmp/aud-cookies.txt"
 
+# Override job count. Default uses number of CPU threads,
+JOBCOUNT="$(grep -c ^processor /proc/cpuinfo)"
+
 # Common config, shared between multiple scripts
 COMMONCONF="/home/$USER/.config/scripts/common.cfg"
 
@@ -89,7 +92,7 @@ function preprocess() {
 
 	if [[ -d $SELDIR && -n $EXT ]] || [[ -f $SELDIR && $EXT == "m4b" ]]; then
 		# After we verify the input needs to be merged, lets run the merge command.
-		pipe "$M4BPATH" merge "$SELDIR" --output-file="$OUTPUT"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --jobs="$(grep -c ^processor /proc/cpuinfo)"
+		pipe "$M4BPATH" merge "$SELDIR" --output-file="$OUTPUT"/"$albumartistvar"/"$albumvar"/"$namevar".m4b "${M4BSEL[@]//$'\n'/}" --force --jobs="$JOBCOUNT"
 		color_highlight "Merge completed for $namevar."
 	elif [[ -f $SELDIR && $EXT == "mp3" ]]; then
 		sfile="true"
