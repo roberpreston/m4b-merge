@@ -1,4 +1,4 @@
-m4b-merge.sh [-a] [-b] [-f] [-h] [-n] [-v] [-y]
+`m4b-merge.sh [-a] [-b] [-f] [-h] [-n] [-v] [-y]`
 
 - '-a' Be prompted for Audible ASINs instead of manually entering metadata (BETA)
 - '-b' Batch mode. File input is used for 1 folder only.
