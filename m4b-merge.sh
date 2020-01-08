@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script to use m4b-tool to merge audiobooks, easily.
-## REQUIRES: mutagen pv, https://github.com/sandreas/m4b-tool
-VER=1.2.1
+## REQUIRES: mutagen, pv, https://github.com/sandreas/m4b-tool
+VER=1.3.0
 
 #LOCAL FOLDERS
 OUTPUT=""
@@ -15,9 +15,6 @@ AUDCOOKIES="/tmp/aud-cookies.txt"
 # Override job count. Default uses number of CPU threads,
 JOBCOUNT="$(grep -c ^processor /proc/cpuinfo)"
 
-# Common config, shared between multiple scripts
-COMMONCONF="/home/$USER/.config/scripts/common.cfg"
-
 # If anything isn't set, assume defaults
 if [[ -z $M4BPATH ]]; then
 	M4BPATH="$(which m4b-tool)"
@@ -26,26 +23,26 @@ fi
 if [[ ! -d /output ]]; then
 	# Check if output env var is empty
 	if [[ -z $OUTPUT ]]; then
-		OUTPUT="/mnt/hdd/audiobooks"
+		error "Output is not set. Exiting."
+		exit 1
 	fi
 else
 	OUTPUT="/output"
 fi
 
 # -h help text to print
-usage="	$(basename "$0") $VER [-a] [-b] [-f] [-h] [-n] [-v] [-y]
+usage="	$(basename "$0") $VER [-a] [-b] [-f] [-h] [-v] [-y]
 
 	'-a' Be prompted for Audible ASINs instead of manually entering metadata (BETA)
 	'-b' Batch mode. File input is used for 1 folder only.
 	'-f' File or folder to run from. Enter multiple files if you need, as: -f file1 -f file2 -f file3
 	'-h' This help text.
-	'-n' Enable Pushover notifications.
 	'-v' Verbose mode.
 	'-y' Answer 'yes' to all prompts.
 	"
 
 # Flags for this script
-	while getopts ":abf:hnvy" option; do
+	while getopts ":abf:hvy" option; do
  case "${option}" in
 	a) AUDIBLEMETA=true
 		;;
@@ -55,8 +52,6 @@ usage="	$(basename "$0") $VER [-a] [-b] [-f] [-h] [-n] [-v] [-y]
 		;;
 	h) echo "$usage"
  		exit
-		;;
-	n) PUSHOVER=true
 		;;
 	v) VERBOSE=true
 		;;
@@ -417,27 +412,6 @@ function batchprocess2() {
 	done
 }
 
-function pushovr() {
-	# Check if user wanted notifications
-	if [ "$PUSHOVER" = "true" ]; then
-		notice "Sending Pushover notification..."
-		if [[ $VERBOSE == "true" ]]; then
-			OPT="--verbose"
-		else
-			OPT="--silent > /dev/null"
-		fi
-		MESSAGE="m4b-merge script has finished processing all specified audiobooks. Waiting on user to tell me what to delete."
-		TITLE="m4b-merge finished"
-		source "$COMMONCONF"
-		curl \
-	    -F "token=$APP_TOKEN" \
-	    -F "user=$USER_TOKEN" \
-	    -F "title=$TITLE" \
-	    -F "message=$MESSAGE" \
-	    https://api.pushover.net/1/messages.json "$OPT"
-	fi
-}
-
 ### Style functions ###
 function notice () {
     if [[ $VERBOSE == "true" ]]; then
@@ -537,8 +511,6 @@ fi
 collectmeta
 # Process metadata batch
 batchprocess
-# Send notification
-pushovr
 
 # NOTE: Batchprocess2 is still buggy and needs to be re-written, so it's disabled for now.
 #batchprocess2
